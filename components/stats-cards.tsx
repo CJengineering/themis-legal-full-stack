@@ -7,24 +7,28 @@ const stats = [
     value: "24",
     icon: FileText,
     description: "All documents",
+    color: "bg-primary/10 text-primary",
   },
   {
     label: "Pending Signatures",
     value: "8",
     icon: Clock,
     description: "Awaiting action",
+    color: "bg-accent/10 text-accent",
   },
   {
     label: "Completed",
     value: "12",
     icon: CheckCircle2,
     description: "This month",
+    color: "bg-success/10 text-success",
   },
   {
     label: "Your Signatures",
     value: "3",
     icon: PenTool,
     description: "Pending",
+    color: "bg-chart-3/10 text-chart-3",
   },
 ]
 
@@ -32,7 +36,7 @@ export function StatsCards() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {stats.map((stat) => (
-        <Card key={stat.label}>
+        <Card key={stat.label} className="border-l-4 border-l-primary/50">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -46,8 +50,8 @@ export function StatsCards() {
                   {stat.description}
                 </p>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <stat.icon className="h-5 w-5 text-muted-foreground" />
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.color}`}>
+                <stat.icon className="h-5 w-5" />
               </div>
             </div>
           </CardContent>

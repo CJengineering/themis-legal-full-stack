@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus, Search, Filter, ArrowUpDown } from "lucide-react"
+import { Plus, Search, Filter, ArrowUpDown, Scale } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -26,57 +26,57 @@ const documents: Array<{
 }> = [
   {
     id: "1",
-    title: "Software Development Agreement - TechCorp Inc.",
-    type: "contract",
+    title: "Mutual Non-Disclosure Agreement - Tech Ventures Inc.",
+    type: "nda",
     status: "pending",
     signers: { total: 3, signed: 1 },
     updatedAt: "2 hours ago",
-    createdBy: "You",
+    createdBy: "James Mitchell, Esq.",
   },
   {
     id: "2",
-    title: "Non-Disclosure Agreement - Project Alpha",
-    type: "nda",
+    title: "Professional Services Agreement - Consulting Engagement",
+    type: "contract",
     status: "pending",
     signers: { total: 2, signed: 0 },
     updatedAt: "5 hours ago",
-    createdBy: "You",
+    createdBy: "James Mitchell, Esq.",
   },
   {
     id: "3",
-    title: "Employment Contract - Sarah Johnson",
+    title: "Employment Agreement - Senior Associate Position",
     type: "contract",
     status: "completed",
     signers: { total: 2, signed: 2 },
     updatedAt: "Yesterday",
-    createdBy: "You",
+    createdBy: "James Mitchell, Esq.",
   },
   {
     id: "4",
-    title: "Authorization Letter - Bank Account Access",
+    title: "Limited Power of Attorney - Estate Planning",
     type: "authorization",
     status: "draft",
     signers: { total: 0, signed: 0 },
     updatedAt: "2 days ago",
-    createdBy: "You",
+    createdBy: "James Mitchell, Esq.",
   },
   {
     id: "5",
-    title: "Partnership Agreement - Global Ventures",
+    title: "Partnership Agreement - Global Ventures LLP",
     type: "contract",
     status: "waiting",
     signers: { total: 4, signed: 2 },
     updatedAt: "3 days ago",
-    createdBy: "You",
+    createdBy: "James Mitchell, Esq.",
   },
   {
     id: "6",
-    title: "Mutual NDA - Consulting Services",
+    title: "Confidentiality Agreement - M&A Transaction",
     type: "nda",
     status: "completed",
     signers: { total: 2, signed: 2 },
     updatedAt: "1 week ago",
-    createdBy: "You",
+    createdBy: "James Mitchell, Esq.",
   },
 ]
 
@@ -94,7 +94,7 @@ export default function DashboardPage() {
                 Dashboard
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Manage your documents and signature workflows
+                Manage your legal documents and e-signature workflows
               </p>
             </div>
             <Button asChild>
@@ -113,9 +113,12 @@ export default function DashboardPage() {
           {/* Documents Section */}
           <div className="mt-10">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-foreground">
-                Recent Documents
-              </h2>
+              <div className="flex items-center gap-2">
+                <Scale className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-medium text-foreground">
+                  Recent Documents
+                </h2>
+              </div>
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

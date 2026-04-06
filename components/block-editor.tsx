@@ -82,9 +82,9 @@ export function BlockEditor({ blocks, onBlocksChange, onAddSignatureBlock }: Blo
   }
 
   return (
-    <div className="space-y-1">
+    <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="sticky top-0 z-10 flex items-center gap-1 rounded-lg border border-border bg-card p-2 shadow-sm">
+      <div className="sticky top-0 z-10 flex items-center gap-1 rounded-t-lg border border-border bg-card p-2 shadow-sm">
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
           <Bold className="h-4 w-4" />
         </Button>
@@ -137,7 +137,7 @@ export function BlockEditor({ blocks, onBlocksChange, onAddSignatureBlock }: Blo
         <div className="flex-1" />
 
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
           onClick={onAddSignatureBlock}
           className="gap-2"
@@ -147,158 +147,160 @@ export function BlockEditor({ blocks, onBlocksChange, onAddSignatureBlock }: Blo
         </Button>
       </div>
 
-      {/* Editor Canvas */}
-      <div className="min-h-[600px] rounded-lg border border-border bg-card p-8 shadow-sm">
-        {blocks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-sm text-muted-foreground">
-              Start typing or add a block
-            </p>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="mt-4 gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Block
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => addBlock("paragraph")}>
-                  Paragraph
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => addBlock("heading1")}>
-                  Heading 1
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => addBlock("heading2")}>
-                  Heading 2
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => addBlock("heading3")}>
-                  Heading 3
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => addBlock("bullet-list")}>
-                  Bullet List
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => addBlock("numbered-list")}>
-                  Numbered List
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => addBlock("separator")}>
-                  Separator
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onAddSignatureBlock}>
-                  <PenTool className="mr-2 h-4 w-4" />
-                  Signature Field
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {blocks.map((block) => (
-              <div
-                key={block.id}
-                className={cn(
-                  "group relative flex items-start gap-2 rounded-lg p-2 transition-colors hover:bg-muted/50",
-                  activeBlock === block.id && "bg-muted/50"
-                )}
-              >
-                <div className="flex items-center gap-1 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 cursor-grab p-0 text-muted-foreground"
+      {/* Editor Canvas - Document Style */}
+      <div className="flex-1 overflow-auto rounded-b-lg border border-t-0 border-border bg-muted/30 p-8">
+        <div className="mx-auto max-w-[8.5in] min-h-[11in] bg-card shadow-lg rounded-sm">
+          {/* Document Paper */}
+          <div className="p-12 sm:p-16">
+            {blocks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-32 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Start typing your legal document
+                </p>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="mt-4 gap-2">
+                      <Plus className="h-4 w-4" />
+                      Add Block
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => addBlock("heading1")}>
+                      Document Title
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => addBlock("paragraph")}>
+                      Paragraph
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => addBlock("heading2")}>
+                      Section Heading
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => addBlock("bullet-list")}>
+                      Bullet List
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => addBlock("numbered-list")}>
+                      Numbered List
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => addBlock("separator")}>
+                      Separator
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onAddSignatureBlock}>
+                      <PenTool className="mr-2 h-4 w-4" />
+                      Signature Field
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {blocks.map((block) => (
+                  <div
+                    key={block.id}
+                    className={cn(
+                      "group relative flex items-start gap-2 rounded px-2 py-1 transition-colors hover:bg-muted/30",
+                      activeBlock === block.id && "bg-muted/30"
+                    )}
                   >
-                    <GripVertical className="h-4 w-4" />
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <div className="absolute -left-10 flex items-center gap-1 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 w-6 p-0 text-muted-foreground"
+                        className="h-6 w-6 cursor-grab p-0 text-muted-foreground"
                       >
-                        <Plus className="h-4 w-4" />
+                        <GripVertical className="h-4 w-4" />
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => addBlock("paragraph", block.id)}>
-                        Paragraph
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => addBlock("heading1", block.id)}>
-                        Heading 1
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => addBlock("heading2", block.id)}>
-                        Heading 2
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => addBlock("heading3", block.id)}>
-                        Heading 3
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => addBlock("bullet-list", block.id)}>
-                        Bullet List
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => addBlock("numbered-list", block.id)}>
-                        Numbered List
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => addBlock("separator", block.id)}>
-                        Separator
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onAddSignatureBlock}>
-                        <PenTool className="mr-2 h-4 w-4" />
-                        Signature Field
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <div className="flex-1">
-                  {block.type === "signature" ? (
-                    <SignatureBlockPlaceholder
-                      data={block.signatureData}
-                      onDelete={() => deleteBlock(block.id)}
-                    />
-                  ) : block.type === "separator" ? (
-                    <div className="my-4 border-t border-border" />
-                  ) : (
-                    <div
-                      contentEditable
-                      suppressContentEditableWarning
-                      onFocus={() => setActiveBlock(block.id)}
-                      onBlur={(e) => {
-                        setActiveBlock(null)
-                        updateBlock(block.id, e.currentTarget.textContent || "")
-                      }}
-                      className={cn(
-                        "min-h-[1.5em] outline-none",
-                        block.type === "heading1" && "text-2xl font-bold",
-                        block.type === "heading2" && "text-xl font-semibold",
-                        block.type === "heading3" && "text-lg font-medium",
-                        block.type === "paragraph" && "text-sm leading-relaxed",
-                        block.type === "bullet-list" && "text-sm leading-relaxed pl-4 list-disc",
-                        block.type === "numbered-list" && "text-sm leading-relaxed pl-4 list-decimal",
-                        !block.content && "text-muted-foreground"
-                      )}
-                    >
-                      {block.content || getPlaceholder(block.type)}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => addBlock("paragraph", block.id)}>
+                            Paragraph
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addBlock("heading1", block.id)}>
+                            Heading 1
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addBlock("heading2", block.id)}>
+                            Heading 2
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addBlock("heading3", block.id)}>
+                            Heading 3
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => addBlock("bullet-list", block.id)}>
+                            Bullet List
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addBlock("numbered-list", block.id)}>
+                            Numbered List
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addBlock("separator", block.id)}>
+                            Separator
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={onAddSignatureBlock}>
+                            <PenTool className="mr-2 h-4 w-4" />
+                            Signature Field
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                  )}
-                </div>
 
-                {block.type !== "signature" && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteBlock(block.id)}
-                    className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
+                    <div className="flex-1">
+                      {block.type === "signature" ? (
+                        <SignatureBlockPlaceholder
+                          data={block.signatureData}
+                          onDelete={() => deleteBlock(block.id)}
+                        />
+                      ) : block.type === "separator" ? (
+                        <div className="my-6 border-t border-foreground/20" />
+                      ) : (
+                        <div
+                          contentEditable
+                          suppressContentEditableWarning
+                          onFocus={() => setActiveBlock(block.id)}
+                          onBlur={(e) => {
+                            setActiveBlock(null)
+                            updateBlock(block.id, e.currentTarget.textContent || "")
+                          }}
+                          className={cn(
+                            "min-h-[1.5em] outline-none font-serif",
+                            block.type === "heading1" && "text-2xl font-bold text-center mb-6 uppercase tracking-wide",
+                            block.type === "heading2" && "text-lg font-bold mt-8 mb-4 uppercase",
+                            block.type === "heading3" && "text-base font-semibold mt-6 mb-3",
+                            block.type === "paragraph" && "text-sm leading-7 text-justify indent-8",
+                            block.type === "bullet-list" && "text-sm leading-7 pl-8 list-disc",
+                            block.type === "numbered-list" && "text-sm leading-7 pl-8 list-decimal",
+                            !block.content && "text-muted-foreground italic"
+                          )}
+                        >
+                          {block.content || getPlaceholder(block.type)}
+                        </div>
+                      )}
+                    </div>
+
+                    {block.type !== "signature" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteBlock(block.id)}
+                        className="absolute -right-8 h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
@@ -307,17 +309,17 @@ export function BlockEditor({ blocks, onBlocksChange, onAddSignatureBlock }: Blo
 function getPlaceholder(type: Block["type"]): string {
   switch (type) {
     case "heading1":
-      return "Heading 1"
+      return "DOCUMENT TITLE"
     case "heading2":
-      return "Heading 2"
+      return "ARTICLE I. SECTION HEADING"
     case "heading3":
-      return "Heading 3"
+      return "Section 1.1 Subsection"
     case "bullet-list":
       return "List item"
     case "numbered-list":
-      return "List item"
+      return "Enumerated item"
     default:
-      return "Type something..."
+      return "Enter legal text here..."
   }
 }
 
@@ -329,11 +331,11 @@ function SignatureBlockPlaceholder({
   onDelete: () => void
 }) {
   return (
-    <div className="group/sig relative rounded-lg border-2 border-dashed border-accent/50 bg-accent/5 p-6">
+    <div className="group/sig relative my-8 rounded border border-dashed border-primary/40 bg-primary/5 p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10">
-            <PenTool className="h-5 w-5 text-accent" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+            <PenTool className="h-5 w-5 text-primary" />
           </div>
           <div>
             <p className="text-sm font-medium text-foreground">
@@ -353,21 +355,22 @@ function SignatureBlockPlaceholder({
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
-      <div className="mt-4 flex items-end justify-between border-b border-accent/30 pb-2">
-        <div className="flex-1">
-          <p className="text-xs text-muted-foreground">Signature</p>
-          <div className="mt-1 h-12 w-full" />
+      <div className="mt-6 grid grid-cols-2 gap-8">
+        <div>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Signature</p>
+          <div className="h-16 border-b-2 border-foreground/30" />
+          <p className="mt-2 text-xs text-muted-foreground">{data?.signerName || "Name"}</p>
+          {data?.role && <p className="text-xs text-muted-foreground">{data.role}</p>}
         </div>
         {data?.includeDate && (
-          <div className="ml-4 text-right">
-            <p className="text-xs text-muted-foreground">Date</p>
-            <p className="mt-1 text-sm text-muted-foreground">__/__/____</p>
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Date</p>
+            <div className="h-16 border-b-2 border-foreground/30 flex items-end justify-center pb-1">
+              <span className="text-sm text-muted-foreground">____ / ____ / ________</span>
+            </div>
           </div>
         )}
       </div>
-      {data?.role && (
-        <p className="mt-2 text-xs text-muted-foreground">{data.role}</p>
-      )}
     </div>
   )
 }
