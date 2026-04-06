@@ -220,7 +220,7 @@ export default function SigningPage({
               <PenTool className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="text-lg font-semibold tracking-tight text-foreground">
-              SignFlow
+              Themis Legal
             </span>
           </div>
           <div className="flex items-center gap-3">

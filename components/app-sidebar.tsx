@@ -38,7 +38,7 @@ export function AppSidebar() {
               <PenTool className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="text-lg font-semibold tracking-tight text-sidebar-foreground">
-              SignFlow
+              Themis Legal
             </span>
           </Link>
         </div>

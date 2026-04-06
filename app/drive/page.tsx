@@ -186,19 +186,19 @@ export default function GoogleDrivePage() {
                         <SelectItem value="signed">
                           <div className="flex items-center gap-2">
                             <FolderOpen className="h-4 w-4" />
-                            SignFlow / Signed Documents
+                            Themis Legal / Signed Documents
                           </div>
                         </SelectItem>
                         <SelectItem value="contracts">
                           <div className="flex items-center gap-2">
                             <FolderOpen className="h-4 w-4" />
-                            SignFlow / Contracts
+                            Themis Legal / Contracts
                           </div>
                         </SelectItem>
                         <SelectItem value="ndas">
                           <div className="flex items-center gap-2">
                             <FolderOpen className="h-4 w-4" />
-                            SignFlow / NDAs
+                            Themis Legal / NDAs
                           </div>
                         </SelectItem>
                       </SelectContent>
