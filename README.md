@@ -1,6 +1,6 @@
 # Themis Legal - E-Signature Platform
 
-A professional e-signature application mockup built with Next.js, designed for lawyers and legal professionals to create, manage, and sign legal documents digitally.
+A professional e-signature application mockup built with Next.js, designed for lawyers and legal professionals to create, manage, and sign legal documents digitally. Features deep Google Drive integration where documents are sourced from and saved back to Google Drive.
 
 ## Table of Contents
 
@@ -8,15 +8,14 @@ A professional e-signature application mockup built with Next.js, designed for l
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [Application Structure](#application-structure)
+- [Core Concepts](#core-concepts)
 - [Pages & Features](#pages--features)
   - [Dashboard](#dashboard)
-  - [Documents](#documents)
-  - [Document Editor](#document-editor)
-  - [Document View](#document-view)
+  - [Workflows](#workflows)
+  - [Document Preparation](#document-preparation)
   - [Signing Experience](#signing-experience)
-  - [Templates](#templates)
-  - [Signatures](#signatures)
-  - [Google Drive Integration](#google-drive-integration)
+  - [My Signatures](#my-signatures)
+  - [Google Drive Browser](#google-drive-browser)
   - [Settings](#settings)
 - [Components](#components)
 - [Design System](#design-system)
@@ -28,11 +27,17 @@ A professional e-signature application mockup built with Next.js, designed for l
 
 Themis Legal is a UI/UX mockup for a professional e-signature platform tailored for legal professionals. The application demonstrates a complete workflow for:
 
-- Creating legal documents (contracts, NDAs, authorizations)
-- Adding signature fields and managing signers
-- Sequential signing workflows
-- Document tracking and management
-- Cloud storage integration (Google Drive)
+- **Google Drive Integration**: Source documents directly from Google Drive
+- **Workflow-Based Signing**: Create signature workflows with sequential signing order
+- **Authenticated Signing**: All signers must log in to verify identity
+- **Document Tracking**: Track workflow progress in real-time
+- **Automatic Storage**: Signed documents are saved back to Google Drive
+
+**Key Architectural Decisions:**
+- Documents live in Google Drive, not uploaded to Themis Legal
+- Workflows orchestrate the signing process across multiple signers
+- All signers authenticate (no anonymous signing links)
+- Completed documents automatically save to Google Drive
 
 **Note:** This is a frontend mockup with mock data. No actual backend or database integration is implemented.
 
@@ -86,35 +91,69 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 app/
 ├── page.tsx                    # Dashboard (home page)
-├── documents/
-│   ├── page.tsx               # Documents list
+├── workflows/
+│   ├── page.tsx               # Workflows list
 │   ├── new/
-│   │   └── page.tsx           # Document editor (create new)
+│   │   └── page.tsx           # Create new workflow (document prep)
 │   └── [id]/
-│       └── page.tsx           # Document view (completed document)
-├── templates/
-│   └── page.tsx               # Templates library
+│       └── page.tsx           # Workflow detail view
 ├── signatures/
-│   └── page.tsx               # Signature requests
+│   └── page.tsx               # My signature requests
 ├── sign/
-│   └── [documentId]/
+│   └── [workflowId]/
 │       └── page.tsx           # Signing experience
 ├── drive/
-│   └── page.tsx               # Google Drive integration
+│   └── page.tsx               # Google Drive browser
 ├── settings/
 │   └── page.tsx               # User settings
 └── layout.tsx                 # Root layout
 
 components/
 ├── app-sidebar.tsx            # Main navigation sidebar
-├── document-card.tsx          # Document list item card
+├── workflow-card.tsx          # Workflow list item card
 ├── stats-cards.tsx            # Dashboard statistics
-├── block-editor.tsx           # Rich text document editor
-├── signature-field-dialog.tsx # Add signature field modal
-├── signer-management.tsx      # Manage document signers
 ├── signature-pad.tsx          # Draw/type signature component
 └── ui/                        # shadcn/ui components
 ```
+
+---
+
+## Core Concepts
+
+### Workflows
+
+A **Workflow** is the central organizing concept in Themis Legal. It represents a signature process for a single document.
+
+**Workflow Properties:**
+- **Source Document**: A file from Google Drive (PDF, Word, etc.)
+- **Signers**: Ordered list of people who need to sign
+- **Status**: Draft → In Progress → Completed
+- **Current Signer**: Who is currently responsible for signing
+
+**Workflow Lifecycle:**
+1. User selects a document from Google Drive
+2. User configures signers and signing order
+3. Workflow starts, first signer is notified
+4. Each signer authenticates and signs in sequence
+5. When all sign, the document is saved to Google Drive
+
+### Authenticated Signing
+
+Unlike traditional e-signature platforms that use anonymous links, Themis Legal requires all signers to authenticate:
+
+- Signers must log in with email/password or Google
+- Identity is verified before signing is allowed
+- Provides stronger legal standing for signatures
+- Creates full audit trail with verified identities
+
+### Google Drive Integration
+
+Documents are not uploaded to Themis Legal. Instead:
+
+- **Source from Drive**: Select existing documents from your Google Drive
+- **Save to Drive**: Signed documents are automatically saved back
+- **Original Preserved**: Original files remain untouched
+- **Permissions Apply**: Drive sharing settings are respected
 
 ---
 
@@ -124,310 +163,182 @@ components/
 
 **Route:** `/`
 
-The main landing page providing an overview of all document activity.
+The main landing page providing an overview of all workflow activity.
 
 **Features:**
 - **Statistics Cards:** Display key metrics including:
-  - Total Documents count
-  - Pending Signatures awaiting action
-  - Completed Documents this month
+  - Active Workflows in progress
+  - Awaiting Your Signature count
+  - Completed This Month
   - Average completion time
 
-- **Recent Documents List:** Shows the most recent documents with:
-  - Document title and type badge (Contract, NDA, Authorization)
-  - Status indicator (Draft, Pending, Waiting, Completed)
-  - Signer progress (e.g., "1 of 3 signed")
-  - Last updated timestamp
-  - Created by information
+- **Workflows Requiring Action:** Quick access to workflows where you're the current signer
 
-- **Document Filtering:** 
-  - Tabs: All, Drafts, Pending, Completed
-  - Search by document name
-  - Filter by document type
-  - Sort by date or name
+- **Recent Workflows:** All workflows you've created or participate in:
+  - Document title and Google Drive path
+  - Current status with visual indicator
+  - Signer progress (e.g., "2 of 3 signed")
+  - Current signer name
+  - Quick actions based on context
 
 - **Quick Actions:**
-  - "New Document" button to create documents
+  - "New Workflow" button to start a new signing process
 
 ---
 
-### Documents
+### Workflows
 
-**Route:** `/documents`
+**Route:** `/workflows`
 
-Complete document management interface.
+Complete workflow management interface.
 
 **Features:**
-- **Full Document List:** All documents with detailed information
+- **Workflow List:** All workflows with detailed information
 - **Status Tabs:** 
   - All (total count)
-  - Drafts (unsigned documents)
-  - Pending (awaiting signatures)
+  - Active (in progress)
   - Completed (fully signed)
+  - Draft (not yet started)
 
 - **Search & Filter:**
   - Text search across document titles
-  - Type filter (Contracts, NDAs, Authorizations)
-  - Sort options (Most Recent, Oldest, Name A-Z, Name Z-A)
+  - Filter by status
+  - Sort options (Most Recent, Oldest)
 
-- **Document Cards:** Each document displays:
-  - Title and document type
+- **Workflow Cards:** Each workflow displays:
+  - Document title and Drive location
   - Current status with visual indicator
-  - Signer progress bar
-  - Dropdown menu with actions (Edit, Download, Delete)
+  - Signer progress timeline
+  - Current signer highlighted
+  - "Continue Setup" or "View Details" actions
 
 ---
 
-### Document Editor
+### Document Preparation
 
-**Route:** `/documents/new`
+**Route:** `/workflows/new`
 
-Rich document creation interface with WYSIWYG editing.
-
-**Features:**
-- **Document Type Selection:**
-  - Contract
-  - Non-Disclosure Agreement (NDA)
-  - Authorization Letter
-
-- **Pre-filled Legal Templates:** Each document type includes realistic legal content:
-  - **NDA:** Full confidentiality agreement with Articles covering:
-    - Definitions
-    - Obligations of Receiving Party
-    - Intellectual Property Rights
-    - Term and Termination
-    - Remedies
-    - General Provisions
-  
-  - **Contract:** Professional Services Agreement with:
-    - Engagement terms
-    - Compensation structure
-    - Term and termination clauses
-    - Intellectual property provisions
-    - Limitation of liability
-  
-  - **Authorization:** Grant of Authority with:
-    - Scope of authority
-    - Limitations
-    - Acknowledgments
-
-- **Rich Text Editing Toolbar:**
-  - Bold, Italic, Underline formatting
-  - Heading levels (H1, H2, H3)
-  - Bullet and numbered lists
-  - Text alignment (left, center, right, justify)
-  - Undo/Redo actions
-
-- **Signature Field Insertion:**
-  - Click to add signature fields at any position
-  - Assign fields to specific signers
-  - Choose field types (Signature, Initials, Date)
-  - Mark fields as required or optional
-
-- **Signer Management Panel:**
-  - Add multiple signers with name and email
-  - Drag-and-drop to reorder signing sequence
-  - Define signing order (sequential or parallel)
-  - Send invitation emails to signers
-
-- **Document Preview:**
-  - Professional PDF-like preview
-  - Paper-style formatting (8.5" x 11")
-  - Legal typography (serif fonts, justified text)
-
-- **Save Options:**
-  - Save as Draft
-  - Send for Signature
-
----
-
-### Document View
-
-**Route:** `/documents/[id]`
-
-View completed and signed documents with professional PDF-style rendering.
+Create a new signing workflow by selecting a document and configuring signers.
 
 **Features:**
-- **Professional Document Display:**
-  - Law firm letterhead with logo
-  - Document reference number
-  - Formal legal formatting
-  - Signature blocks with verification badges
 
-- **Document Header:**
-  - Back navigation
-  - Status badge (Completed, Pending, etc.)
-  - Document type indicator
-  - Creation date and author
+**Step 1: Select Document**
+- Browse Google Drive file picker
+- Filter by file type (PDF, Word)
+- Search within Drive
+- Show recently used documents
+- Preview document before selection
 
-- **Status Panel:**
-  - Signing progress (e.g., "2 of 2 signed - 100%")
-  - Progress bar visualization
-  - Completion timestamp
+**Step 2: Configure Signers**
+- Add signers by email address
+- Auto-populate from recent contacts
+- Set signer display name
+- Drag-and-drop to reorder signing sequence
+- Assign signer roles (optional)
 
-- **Signers List:**
-  - All signers with their roles
-  - Signature verification status (green checkmark)
-  - Signing timestamps
+**Step 3: Signature Placement**
+- Visual document preview
+- Drag signature fields onto document
+- Assign fields to specific signers
+- Multiple field types: Signature, Date, Initials
+- Resize and position fields
 
-- **Export Options:**
-  - Download PDF
-  - Save to Google Drive
-  - Send copy via Email
-  - Export to Google Drive
-
-- **Audit Trail:**
-  - Complete history of document actions
-  - Timestamps for each event
-  - User identification for each action
+**Step 4: Review & Start**
+- Summary of workflow configuration
+- Preview signing order
+- Set workflow name/description
+- Choose save location for completed document
+- "Start Workflow" to initiate
 
 ---
 
 ### Signing Experience
 
-**Route:** `/sign/[documentId]`
+**Route:** `/sign/[workflowId]`
 
 Clean, focused interface for signers to review and sign documents.
 
 **Features:**
-- **Signer Verification:**
-  - Email verification step
-  - Signer identification
 
-- **Document Review:**
-  - Full scrollable document preview
-  - Professional legal document formatting
-  - Highlighted signature fields
+**Authentication Gate:**
+- Login required before viewing document
+- Email verification against workflow signer list
+- "Not on the list" handling for wrong emails
 
-- **Signing Progress:**
-  - Multi-step progress indicator
-  - Current step highlighting
-  - Remaining steps count
+**Document Review:**
+- Full scrollable document preview
+- Professional legal document formatting
+- Highlighted signature fields for current signer
+- Read-only view of other signers' completed signatures
 
-- **Signature Creation:**
-  - **Draw Tab:** Canvas for hand-drawn signatures
-    - Mouse/touch drawing support
-    - Clear and redo options
-    - Multiple stroke colors
+**Signing Interface:**
+- **Draw Tab:** Canvas for hand-drawn signatures
+  - Mouse/touch drawing support
+  - Clear and redo options
   
-  - **Type Tab:** Stylized font signatures
-    - Multiple font style options (Elegant, Classic, Modern, Formal)
-    - Real-time preview
-    - Custom text input
+- **Type Tab:** Stylized font signatures
+  - Multiple font style options
+  - Real-time preview
 
-- **Legal Agreement:**
-  - Checkbox for electronic signature consent
-  - Terms and conditions link
-  - Legal disclaimer text
+**Legal Agreement:**
+- Checkbox for electronic signature consent
+- Identity confirmation
+- Terms and conditions acceptance
 
-- **Signature Placement:**
-  - Click to place signature in designated fields
-  - Preview before confirming
-  - Edit option before final submission
-
-- **Completion:**
-  - Success confirmation
-  - Option to download signed copy
-  - Return to dashboard
+**Completion:**
+- Success confirmation
+- Notification that next signer will be contacted
+- Option to view workflow status
 
 ---
 
-### Templates
-
-**Route:** `/templates`
-
-Reusable document template library.
-
-**Features:**
-- **Pre-built Templates:**
-  - Standard Contract
-  - Non-Disclosure Agreement
-  - Employment Contract
-  - Authorization Letter
-  - Service Agreement
-  - Confidentiality Agreement
-
-- **Template Cards:** Each template shows:
-  - Template name and icon
-  - Description of use case
-  - Usage count statistics
-  - "Use Template" quick action
-
-- **Template Management:**
-  - Edit existing templates
-  - Duplicate templates
-  - Delete templates
-  - View template details
-
-- **Create Template Dialog:**
-  - Template name input
-  - Document type selection (Contract, NDA, Authorization, Employment, Service, Other)
-  - Description field
-  - Starting options:
-    - Blank Template (start from scratch)
-    - Upload Document (import existing file)
-
----
-
-### Signatures
+### My Signatures
 
 **Route:** `/signatures`
 
-Manage incoming signature requests and view signing history.
+View and manage signature requests assigned to you.
 
 **Features:**
-- **Pending Signatures Tab:**
-  - Documents awaiting your signature
-  - Request details (who requested, when)
-  - Due dates
-  - Signing position (e.g., "3 of 4")
-  - Status indicators:
-    - "Ready to Sign" - Your turn to sign
-    - "Waiting" - Waiting for previous signers
-  - Quick "Sign Now" action for ready documents
 
-- **Completed Signatures Tab:**
-  - History of documents you've signed
-  - Signing dates
-  - Requester information
-  - "View Document" link
+**Pending Tab:**
+- Documents awaiting your signature
+- Status indicators:
+  - "Your Turn" - Ready to sign now
+  - "Waiting" - Previous signers not yet complete
+- Signing position (e.g., "Signer 2 of 4")
+- "Sign Now" quick action for ready documents
 
-- **Empty State:**
-  - Friendly message when no pending signatures
+**Signed Tab:**
+- History of documents you've signed
+- Signing timestamps
+- Links to view completed workflows
+
+**Action Required Banner:**
+- Prominent alert when signatures are needed
+- Direct link to sign
 
 ---
 
-### Google Drive Integration
+### Google Drive Browser
 
 **Route:** `/drive`
 
-Connect and sync documents with Google Drive.
+Browse and select documents from Google Drive.
 
 **Features:**
-- **Connection Status:**
-  - Current connection state
-  - Connected Google account email
-  - Last sync timestamp
+- **File Navigation:**
+  - Folder breadcrumb trail
+  - Click folders to navigate
+  - Sort by name, date, size
 
-- **Connect/Disconnect:**
-  - OAuth flow initiation
-  - Account switching
-  - Disconnect option
+- **Document Selection:**
+  - Filter to signable documents (PDF, Word)
+  - "Start Workflow" button on each document
+  - Preview documents before selecting
 
-- **Sync Settings:**
-  - **Auto-sync completed documents:** Toggle to automatically save signed documents
-  - **Default folder selection:** Choose where to save documents
-  - Custom folder path input
-
-- **Sync History:**
-  - List of recently synced documents
-  - Sync timestamps
-  - Document titles
-  - View in Drive links
-
-- **Manual Sync:**
-  - Sync now button
-  - Last sync time display
+- **Search:**
+  - Search within current folder
+  - Full Drive search option
 
 ---
 
@@ -440,41 +351,34 @@ User account and application preferences.
 **Features:**
 
 #### Profile Tab
-- **Personal Information:**
-  - First name / Last name
-  - Email address
-  - Company / Organization
-  - Job title
-  - Save changes button
+- Personal information (name, email, company)
+- Default signature configuration
+- Signature preview
 
-- **Default Signature:**
-  - Preview of current signature
-  - Update signature option
+#### Drive Tab
+- Google Drive connection status
+- Connected account display
+- Disconnect/reconnect option
+- Sync settings:
+  - Auto-save completed documents
+  - Default save location
+  - File naming convention
 
 #### Notifications Tab
-- **Email Notification Toggles:**
-  - Signature requests (when you need to sign)
-  - Signature reminders (for pending signatures)
-  - Completion notifications (when documents are fully signed)
+- Signature request notifications
+- Reminder settings
+- Workflow completion alerts
+- Workflow update notifications
 
 #### Security Tab
-- **Password Management:**
-  - Current password verification
-  - New password input
-  - Confirm new password
-  - Update password button
-
-- **Two-Factor Authentication:**
-  - Current status display
-  - Enable/Disable toggle
-  - Setup flow
+- Password management
+- Two-factor authentication
+- Session management
 
 #### Preferences Tab
-- **Regional Settings:**
-  - Language selection (English US, English UK, Spanish, French, German)
-  - Timezone selection (PT, MT, CT, ET, UTC)
-  - Date format (MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD)
-  - Save preferences button
+- Language selection
+- Timezone
+- Date format
 
 ---
 
@@ -483,33 +387,17 @@ User account and application preferences.
 ### App Sidebar (`components/app-sidebar.tsx`)
 Fixed navigation sidebar with:
 - Logo and branding
-- Navigation links (Dashboard, Documents, Templates, Signatures)
-- Integrations section (Google Drive)
+- Navigation links (Dashboard, Workflows, My Signatures)
+- Google Drive integration link
 - Settings link
 - User profile section
 
-### Document Card (`components/document-card.tsx`)
-Reusable card component displaying:
-- Document title
-- Type badge with icon
-- Status indicator with color coding
-- Signer progress
-- Timestamp
-- Action dropdown menu
-
 ### Stats Cards (`components/stats-cards.tsx`)
 Dashboard metrics cards showing:
-- Total document count
-- Pending signatures
+- Active workflow count
+- Awaiting your signature
 - Completed this month
 - Average completion time
-
-### Block Editor (`components/block-editor.tsx`)
-Rich text editor with:
-- Formatting toolbar
-- Document type templates
-- Real-time editing
-- Signature field insertion
 
 ### Signature Pad (`components/signature-pad.tsx`)
 Signature input component with:
@@ -518,22 +406,16 @@ Signature input component with:
 - Multiple font styles
 - Clear/redo functionality
 
-### Signer Management (`components/signer-management.tsx`)
-Signer configuration panel with:
-- Add/remove signers
-- Email validation
-- Drag-and-drop reordering
-- Signing order configuration
-
 ---
 
 ## Design System
 
 ### Color Palette
-The application uses a vibrant primary color scheme:
-- **Primary:** Crimson Red (#d02146)
-- **Accent:** Magenta Pink (#ff00c1)
-- **Secondary:** Purple (#9600ff)
+The application uses a professional, legal-focused color scheme:
+- **Primary:** Deep Crimson (#c91432)
+- **Accent:** Warm gold tones for highlights
+- **Success:** Green for completed states
+- **Warning:** Amber for attention-needed states
 - **Background:** Light neutral
 - **Sidebar:** Dark charcoal
 
@@ -544,8 +426,8 @@ The application uses a vibrant primary color scheme:
 
 ### Status Colors
 - **Draft:** Gray
-- **Pending:** Amber/Yellow
-- **Waiting:** Blue
+- **In Progress:** Blue
+- **Your Turn:** Amber/Warning
 - **Completed:** Green
 - **Error:** Red
 
@@ -557,7 +439,7 @@ The application uses a vibrant primary color scheme:
 
 This project was created with [v0.dev](https://v0.dev) by Vercel.
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_12W442weWQFG7S2MS9gBJ43gFOVy)
+[Continue working on v0](https://v0.app/chat/projects/prj_12W442weWQFG7S2MS9gBJ43gFOVy)
 
 ### Scripts
 
