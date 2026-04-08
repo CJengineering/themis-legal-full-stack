@@ -3,25 +3,27 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  FileText,
-  FolderOpen,
   LayoutDashboard,
   PenTool,
   Settings,
   HardDrive,
-  FileStack,
+  GitBranch,
+  Users,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Documents", href: "/documents", icon: FileText },
-  { name: "Templates", href: "/templates", icon: FileStack },
-  { name: "Signatures", href: "/signatures", icon: PenTool },
+  { name: "Workflows", href: "/workflows", icon: GitBranch, badge: "5" },
+  { name: "My Signatures", href: "/signatures", icon: PenTool, badge: "2" },
   { name: "Google Drive", href: "/drive", icon: HardDrive },
 ]
 
 const bottomNavigation = [
+  { name: "Team", href: "/team", icon: Users },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
@@ -46,20 +48,27 @@ export function AppSidebar() {
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-3 py-4">
           {navigation.map((item) => {
-            const isActive = pathname === item.href
+            const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-sidebar-accent text-sidebar-foreground"
                     : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
                 )}
               >
-                <item.icon className="h-4 w-4" />
-                {item.name}
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-4 w-4" />
+                  {item.name}
+                </div>
+                {item.badge && (
+                  <Badge variant="secondary" className="h-5 min-w-5 justify-center bg-primary/20 text-xs text-primary">
+                    {item.badge}
+                  </Badge>
+                )}
               </Link>
             )
           })}
@@ -87,18 +96,30 @@ export function AppSidebar() {
           })}
 
           {/* User Profile */}
-          <div className="mt-4 flex items-center gap-3 rounded-lg border border-sidebar-border px-3 py-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
-              JD
+          <div className="mt-4 rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
+                JD
+              </div>
+              <div className="flex-1 truncate">
+                <p className="truncate text-sm font-medium text-sidebar-foreground">
+                  John Doe
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  john@lawfirm.com
+                </p>
+              </div>
             </div>
-            <div className="flex-1 truncate">
-              <p className="truncate text-sm font-medium text-sidebar-foreground">
-                John Doe
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                john@lawfirm.com
-              </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                <HardDrive className="mr-1 h-3 w-3" />
+                Google Connected
+              </Badge>
             </div>
+            <Button variant="ghost" size="sm" className="mt-2 w-full justify-start text-muted-foreground">
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </Button>
           </div>
         </div>
       </div>

@@ -1,19 +1,19 @@
-import { FileText, Clock, CheckCircle2, PenTool } from "lucide-react"
+import { GitBranch, Clock, CheckCircle2, PenTool } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 
 const stats = [
   {
-    label: "Total Documents",
-    value: "24",
-    icon: FileText,
-    description: "All documents",
+    label: "Active Workflows",
+    value: "5",
+    icon: GitBranch,
+    description: "In progress",
     color: "bg-primary/10 text-primary",
   },
   {
-    label: "Pending Signatures",
+    label: "Awaiting Signatures",
     value: "8",
     icon: Clock,
-    description: "Awaiting action",
+    description: "From others",
     color: "bg-accent/10 text-accent",
   },
   {
@@ -24,11 +24,11 @@ const stats = [
     color: "bg-success/10 text-success",
   },
   {
-    label: "Your Signatures",
-    value: "3",
+    label: "Your Turn to Sign",
+    value: "2",
     icon: PenTool,
-    description: "Pending",
-    color: "bg-chart-3/10 text-chart-3",
+    description: "Action required",
+    color: "bg-warning/10 text-warning",
   },
 ]
 
