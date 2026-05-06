@@ -12,6 +12,9 @@ import { NextResponse } from 'next/server'
  * - User must be workflow creator OR a signer on the workflow
  * - Signers: also enforces sequential order check (for signing flow)
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

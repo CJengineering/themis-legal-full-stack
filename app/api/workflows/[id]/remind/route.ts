@@ -22,6 +22,9 @@ interface RouteContext {
  *   message: string
  * }
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: Request, context: RouteContext) {
   // 1. Authenticate user
   const session = await auth.api.getSession({ headers: await headers() })

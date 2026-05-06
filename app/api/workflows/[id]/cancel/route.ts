@@ -21,6 +21,9 @@ interface RouteContext {
  * 2. Write WORKFLOW_CANCELLED audit log
  * 3. Send cancellation emails to all non-SIGNED signers
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function PATCH(request: Request, context: RouteContext) {
   // 1. Authenticate user
   const session = await auth.api.getSession({ headers: await headers() })

@@ -19,6 +19,9 @@ import { NextResponse } from 'next/server'
  * 4. All previous signers must have status SIGNED
  * 5. Consent must be given
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

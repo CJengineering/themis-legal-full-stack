@@ -27,6 +27,9 @@ interface RouteContext {
  *   }>
  * }
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request, context: RouteContext) {
   // 1. Authenticate user
   const session = await auth.api.getSession({ headers: await headers() })

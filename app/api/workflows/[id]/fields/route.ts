@@ -22,6 +22,9 @@ interface FieldInput {
  *
  * Authorization: Only workflow creator can place fields
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
