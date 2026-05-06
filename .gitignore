@@ -35,3 +35,4 @@ npm-debug.log*
 tasks/todo.md
 
 /lib/generated/prisma
+.vercel
