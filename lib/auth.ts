@@ -16,10 +16,10 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: false, // OAuth only for now
   },
-  socialProviders: {
+  socialProviders: process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       scope: [
         "openid",
         "email",
@@ -29,7 +29,7 @@ export const auth = betterAuth({
       ],
     },
     // Microsoft will be added later
-  },
+  } : {},
   user: {
     // Additional user fields that we already have in Prisma schema
     additionalFields: {
