@@ -8,7 +8,21 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const from = searchParams.get("from") || "/dashboard"
 
+  // DEBUG: Log all environment variables
+  console.log("=== LOGIN PAGE DEBUG ===")
+  console.log("NEXT_PUBLIC_BETTER_AUTH_URL:", process.env.NEXT_PUBLIC_BETTER_AUTH_URL)
+  console.log("NEXT_PUBLIC_APP_URL:", process.env.NEXT_PUBLIC_APP_URL)
+  console.log("NODE_ENV:", process.env.NODE_ENV)
+  console.log("Current URL:", typeof window !== 'undefined' ? window.location.href : 'SSR')
+  console.log("Callback URL:", from)
+  console.log("======================")
+
   const handleGoogleSignIn = async () => {
+    console.log("=== SIGN IN ATTEMPT ===")
+    console.log("Provider: google")
+    console.log("Callback URL:", from)
+    console.log("======================")
+
     await signIn.social({
       provider: "google",
       callbackURL: from,
