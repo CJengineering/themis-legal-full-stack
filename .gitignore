@@ -1,16 +1,37 @@
-# v0 sandbox internal files
-__v0_runtime_loader.js
-__v0_devtools.tsx
-__v0_jsx-dev-runtime.ts
-.snowflake/
-.v0-trash/
-.vercel/
-next.user-config.*
+# Themis Legal — .gitignore additions
 
-# Environment variables
-.env*.local
+# Environment
+.env
+.env.local
+.env.*.local
 
-# Common ignores
-node_modules
+# Claude personal overrides
+CLAUDE.local.md
+
+# Next.js
 .next/
+out/
+
+# Dependencies
+node_modules/
+
+# Database
+*.db
+*.sqlite
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Tasks (personal todos, not specs)
+tasks/todo.md
+
+/lib/generated/prisma

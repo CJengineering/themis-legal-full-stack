@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowLeft, ArrowRight, Check, HardDrive, FileText, Users, Settings2, GripVertical, Plus, Trash2, Calendar, Search, Folder, ChevronRight, File } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, ArrowRight, Check, HardDrive, FileText, Users, Settings2, GripVertical, Plus, Trash2, Calendar, Search, Folder, ChevronRight, File, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,41 +14,32 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AppSidebar } from "@/components/app-sidebar"
+import { FilePicker } from "@/components/drive/FilePicker"
 import Link from "next/link"
 import { format } from "date-fns"
 
 interface DriveFile {
   id: string
   name: string
-  type: "file" | "folder"
-  mimeType?: string
-  path: string
-  modifiedAt: string
+  mimeType: string
+  modifiedTime: string
+  size?: string
+  parents?: string[]
 }
 
 interface Signer {
+  id?: string
+  name: string
+  email: string
+  order: number
+}
+
+interface TeamMember {
   id: string
   name: string
   email: string
-  role: string
+  image: string | null
 }
-
-const mockDriveFiles: DriveFile[] = [
-  { id: "f1", name: "Legal", type: "folder", path: "/Legal", modifiedAt: "Apr 5, 2026" },
-  { id: "f2", name: "HR", type: "folder", path: "/HR", modifiedAt: "Apr 3, 2026" },
-  { id: "f3", name: "Contracts", type: "folder", path: "/Contracts", modifiedAt: "Apr 1, 2026" },
-  { id: "d1", name: "NDA_Template_2026.docx", type: "file", mimeType: "application/vnd.google-apps.document", path: "/Legal/NDAs", modifiedAt: "Apr 5, 2026" },
-  { id: "d2", name: "Employment_Agreement_Draft.docx", type: "file", mimeType: "application/vnd.google-apps.document", path: "/HR", modifiedAt: "Apr 4, 2026" },
-  { id: "d3", name: "Services_Agreement_ClientA.pdf", type: "file", mimeType: "application/pdf", path: "/Contracts", modifiedAt: "Apr 2, 2026" },
-]
-
-const mockTeamMembers = [
-  { id: "u1", name: "John Doe", email: "john@lawfirm.com", role: "Partner" },
-  { id: "u2", name: "James Mitchell", email: "james@lawfirm.com", role: "Senior Associate" },
-  { id: "u3", name: "Sarah Chen", email: "sarah@lawfirm.com", role: "Associate" },
-  { id: "u4", name: "Emily Roberts", email: "emily@lawfirm.com", role: "Paralegal" },
-  { id: "u5", name: "Michael Brown", email: "michael@lawfirm.com", role: "Partner" },
-]
 
 const steps = [
   { id: 1, name: "Select Document", icon: HardDrive },
@@ -57,35 +49,59 @@ const steps = [
 ]
 
 export default function NewWorkflowPage() {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedFile, setSelectedFile] = useState<DriveFile | null>(null)
   const [signers, setSigners] = useState<Signer[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
   const [signerSearch, setSignerSearch] = useState("")
-  const [currentPath, setCurrentPath] = useState("/")
   const [retentionDate, setRetentionDate] = useState<Date | undefined>()
   const [notifyOnSign, setNotifyOnSign] = useState(true)
   const [notifyOnComplete, setNotifyOnComplete] = useState(true)
   const [autoDeleteAfterRetention, setAutoDeleteAfterRetention] = useState(false)
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [loadingTeamMembers, setLoadingTeamMembers] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const filteredFiles = mockDriveFiles.filter(
-    (f) => f.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Fetch team members for Step 2
+  useEffect(() => {
+    async function fetchTeamMembers() {
+      setLoadingTeamMembers(true)
+      try {
+        const response = await fetch('/api/users')
+        if (!response.ok) throw new Error('Failed to fetch team members')
+        const data = await response.json()
+        setTeamMembers(data.users)
+      } catch (err) {
+        console.error('Failed to fetch team members:', err)
+        setError('Failed to load team members')
+      } finally {
+        setLoadingTeamMembers(false)
+      }
+    }
+    fetchTeamMembers()
+  }, [])
 
-  const filteredTeamMembers = mockTeamMembers.filter(
+  const filteredTeamMembers = teamMembers.filter(
     (m) =>
-      !signers.find((s) => s.id === m.id) &&
+      !signers.find((s) => s.email === m.email) &&
       (m.name.toLowerCase().includes(signerSearch.toLowerCase()) ||
         m.email.toLowerCase().includes(signerSearch.toLowerCase()))
   )
 
-  const addSigner = (member: typeof mockTeamMembers[0]) => {
-    setSigners([...signers, { ...member }])
+  const addSigner = (member: TeamMember) => {
+    setSigners([...signers, {
+      name: member.name,
+      email: member.email,
+      order: signers.length
+    }])
     setSignerSearch("")
   }
 
-  const removeSigner = (id: string) => {
-    setSigners(signers.filter((s) => s.id !== id))
+  const removeSigner = (email: string) => {
+    const newSigners = signers.filter((s) => s.email !== email)
+    // Reassign order numbers after removal
+    setSigners(newSigners.map((s, idx) => ({ ...s, order: idx })))
   }
 
   const moveSigner = (index: number, direction: "up" | "down") => {
@@ -93,7 +109,8 @@ export default function NewWorkflowPage() {
     const newIndex = direction === "up" ? index - 1 : index + 1
     if (newIndex < 0 || newIndex >= signers.length) return
     ;[newSigners[index], newSigners[newIndex]] = [newSigners[newIndex], newSigners[index]]
-    setSigners(newSigners)
+    // Reassign order numbers after move
+    setSigners(newSigners.map((s, idx) => ({ ...s, order: idx })))
   }
 
   const canProceed = () => {
@@ -108,6 +125,54 @@ export default function NewWorkflowPage() {
         return true
       default:
         return false
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!selectedFile) {
+      setError('No file selected')
+      return
+    }
+
+    if (signers.length === 0) {
+      setError('No signers added')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/workflows', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: selectedFile.name,
+          driveFileId: selectedFile.id,
+          signers: signers.map((s) => ({
+            name: s.name,
+            email: s.email,
+            order: s.order,
+          })),
+          retentionDate: retentionDate?.toISOString(),
+          notifyOnSign,
+          notifyOnComplete,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create workflow')
+      }
+
+      const data = await response.json()
+      router.push(`/workflows/${data.workflowId}/place-fields`)
+    } catch (err) {
+      console.error('Failed to create workflow:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create workflow')
+      setIsSubmitting(false)
     }
   }
 
@@ -179,85 +244,38 @@ export default function NewWorkflowPage() {
           <div className="mt-10">
             {/* Step 1: Select Document */}
             {currentStep === 1 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <HardDrive className="h-5 w-5 text-primary" />
-                    Select Document from Google Drive
-                  </CardTitle>
-                  <CardDescription>
-                    Choose the document you want to prepare for signatures. The document will remain in Google Drive.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {/* Search */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Search files..."
-                      className="pl-9"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
+              <div>
+                <Card className="mb-4">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <HardDrive className="h-5 w-5 text-primary" />
+                      Select Document from Google Drive
+                    </CardTitle>
+                    <CardDescription>
+                      Choose the document you want to prepare for signatures. The document will remain in Google Drive.
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
 
-                  {/* Breadcrumb */}
-                  <div className="mt-4 flex items-center gap-1 text-sm text-muted-foreground">
-                    <span className="cursor-pointer hover:text-foreground" onClick={() => setCurrentPath("/")}>
-                      My Drive
-                    </span>
-                    {currentPath !== "/" && (
-                      <>
-                        <ChevronRight className="h-4 w-4" />
-                        <span>{currentPath.slice(1)}</span>
-                      </>
-                    )}
-                  </div>
+                <FilePicker
+                  onSelect={setSelectedFile}
+                  selectedFileId={selectedFile?.id}
+                />
 
-                  {/* File List */}
-                  <div className="mt-4 divide-y divide-border rounded-lg border">
-                    {filteredFiles.map((file) => (
-                      <div
-                        key={file.id}
-                        className={`flex cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-muted/50 ${
-                          selectedFile?.id === file.id ? "bg-primary/5 ring-1 ring-inset ring-primary" : ""
-                        }`}
-                        onClick={() => file.type === "file" && setSelectedFile(file)}
-                      >
-                        <div className="flex items-center gap-3">
-                          {file.type === "folder" ? (
-                            <Folder className="h-5 w-5 text-muted-foreground" />
-                          ) : (
-                            <File className="h-5 w-5 text-primary" />
-                          )}
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{file.name}</p>
-                            <p className="text-xs text-muted-foreground">{file.path}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-muted-foreground">{file.modifiedAt}</span>
-                          {selectedFile?.id === file.id && (
-                            <Badge className="bg-primary/10 text-primary">Selected</Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {selectedFile && (
-                    <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-8 w-8 text-primary" />
-                        <div>
-                          <p className="font-medium text-foreground">{selectedFile.name}</p>
-                          <p className="text-sm text-muted-foreground">{selectedFile.path}</p>
-                        </div>
+                {selectedFile && (
+                  <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-8 w-8 text-primary" />
+                      <div>
+                        <p className="font-medium text-foreground">{selectedFile.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedFile.mimeType === 'application/pdf' ? 'PDF Document' : 'DOCX Document'}
+                        </p>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Step 2: Add Signers */}
@@ -281,11 +299,19 @@ export default function NewWorkflowPage() {
                       className="pl-9"
                       value={signerSearch}
                       onChange={(e) => setSignerSearch(e.target.value)}
+                      disabled={loadingTeamMembers}
                     />
                   </div>
 
+                  {/* Loading State */}
+                  {loadingTeamMembers && (
+                    <div className="mt-4 flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+
                   {/* Search Results */}
-                  {signerSearch && filteredTeamMembers.length > 0 && (
+                  {!loadingTeamMembers && signerSearch && filteredTeamMembers.length > 0 && (
                     <div className="mt-2 divide-y divide-border rounded-lg border">
                       {filteredTeamMembers.slice(0, 5).map((member) => (
                         <div
@@ -304,7 +330,6 @@ export default function NewWorkflowPage() {
                               <p className="text-xs text-muted-foreground">{member.email}</p>
                             </div>
                           </div>
-                          <Badge variant="outline">{member.role}</Badge>
                         </div>
                       ))}
                     </div>
@@ -328,7 +353,7 @@ export default function NewWorkflowPage() {
                       <div className="mt-4 space-y-2">
                         {signers.map((signer, index) => (
                           <div
-                            key={signer.id}
+                            key={signer.email}
                             className="flex items-center gap-3 rounded-lg border bg-card p-3"
                           >
                             <div className="cursor-grab text-muted-foreground">
@@ -346,9 +371,6 @@ export default function NewWorkflowPage() {
                               <p className="text-sm font-medium text-foreground">{signer.name}</p>
                               <p className="text-xs text-muted-foreground">{signer.email}</p>
                             </div>
-                            <Badge variant="outline" className="text-xs">
-                              {signer.role}
-                            </Badge>
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
@@ -372,7 +394,7 @@ export default function NewWorkflowPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-destructive hover:text-destructive"
-                                onClick={() => removeSigner(signer.id)}
+                                onClick={() => removeSigner(signer.email)}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
@@ -494,7 +516,9 @@ export default function NewWorkflowPage() {
                       <FileText className="h-8 w-8 text-primary" />
                       <div>
                         <p className="font-medium text-foreground">{selectedFile?.name}</p>
-                        <p className="text-sm text-muted-foreground">{selectedFile?.path}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedFile?.mimeType === 'application/pdf' ? 'PDF Document' : 'DOCX Document'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -502,11 +526,11 @@ export default function NewWorkflowPage() {
                   {/* Signing Order */}
                   <div>
                     <h3 className="text-sm font-medium text-muted-foreground">
-                      Signing Order ({signers.length} signers)
+                      Signing Order ({signers.length} {signers.length === 1 ? 'signer' : 'signers'})
                     </h3>
                     <div className="mt-2 space-y-2">
                       {signers.map((signer, index) => (
-                        <div key={signer.id} className="flex items-center gap-3 rounded-lg border p-3">
+                        <div key={signer.email} className="flex items-center gap-3 rounded-lg border p-3">
                           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
                             {index + 1}
                           </div>
@@ -523,6 +547,13 @@ export default function NewWorkflowPage() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Error Display */}
+                  {error && (
+                    <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+                      {error}
+                    </div>
+                  )}
 
                   {/* Settings Summary */}
                   <div>
@@ -585,9 +616,18 @@ export default function NewWorkflowPage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-              <Button disabled={!canProceed()}>
-                <Check className="mr-2 h-4 w-4" />
-                Start Workflow
+              <Button onClick={handleSubmit} disabled={!canProceed() || isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Workflow...
+                  </>
+                ) : (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Create & Place Signatures
+                  </>
+                )}
               </Button>
             )}
           </div>

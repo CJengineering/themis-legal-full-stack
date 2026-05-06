@@ -1,16 +1,19 @@
 "use client"
 
-import { Clock, CheckCircle2, PenTool, HardDrive, AlertCircle, User, ArrowRight } from "lucide-react"
+import { Clock, CheckCircle2, PenTool, HardDrive, AlertCircle, User, ArrowRight, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AppSidebar } from "@/components/app-sidebar"
+import { useSession } from "@/lib/auth-client"
 import Link from "next/link"
+import { useEffect, useState } from "react"
 
 interface SignatureRequest {
   id: string
   workflowId: string
+  workflowStatus: string
   documentTitle: string
   drivePath: string
   requestedBy: string
@@ -22,58 +25,10 @@ interface SignatureRequest {
   isYourTurn: boolean
 }
 
-const signatureRequests: SignatureRequest[] = [
-  {
-    id: "sr-001",
-    workflowId: "wf-001",
-    documentTitle: "Mutual Non-Disclosure Agreement - Tech Ventures Inc.",
-    drivePath: "Legal/NDAs/Tech Ventures",
-    requestedBy: "James Mitchell",
-    requestedAt: "April 5, 2026",
-    status: "pending",
-    yourPosition: 2,
-    totalSigners: 3,
-    isYourTurn: true,
-  },
-  {
-    id: "sr-002",
-    workflowId: "wf-004",
-    documentTitle: "Partnership Agreement - Global Ventures LLP",
-    drivePath: "Legal/Partnerships",
-    requestedBy: "James Mitchell",
-    requestedAt: "March 28, 2026",
-    status: "pending",
-    yourPosition: 4,
-    totalSigners: 4,
-    isYourTurn: false,
-  },
-  {
-    id: "sr-003",
-    workflowId: "wf-003",
-    documentTitle: "Employment Agreement - Senior Associate Position",
-    drivePath: "HR/Employment/2026",
-    requestedBy: "HR Director",
-    requestedAt: "April 1, 2026",
-    status: "signed",
-    signedAt: "April 2, 2026 at 3:45 PM",
-    yourPosition: 1,
-    totalSigners: 2,
-    isYourTurn: false,
-  },
-  {
-    id: "sr-004",
-    workflowId: "wf-005",
-    documentTitle: "Confidentiality Agreement - M&A Transaction",
-    drivePath: "Legal/M&A/Confidential",
-    requestedBy: "James Mitchell",
-    requestedAt: "March 20, 2026",
-    status: "signed",
-    signedAt: "March 21, 2026 at 11:20 AM",
-    yourPosition: 2,
-    totalSigners: 2,
-    isYourTurn: false,
-  },
-]
+interface InboxResponse {
+  pending: SignatureRequest[]
+  signed: SignatureRequest[]
+}
 
 function SignatureRequestCard({ request }: { request: SignatureRequest }) {
   return (
@@ -82,7 +37,12 @@ function SignatureRequestCard({ request }: { request: SignatureRequest }) {
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              {request.status === "pending" ? (
+              {request.workflowStatus === "CANCELLED" ? (
+                <Badge variant="destructive" className="bg-destructive/10 text-destructive">
+                  <XCircle className="mr-1 h-3 w-3" />
+                  Cancelled
+                </Badge>
+              ) : request.status === "pending" ? (
                 request.isYourTurn ? (
                   <Badge className="bg-warning text-warning-foreground">
                     <AlertCircle className="mr-1 h-3 w-3" />
@@ -125,7 +85,14 @@ function SignatureRequestCard({ request }: { request: SignatureRequest }) {
             )}
           </div>
           <div className="flex flex-col items-end gap-2">
-            {request.status === "pending" && request.isYourTurn ? (
+            {request.workflowStatus === "CANCELLED" ? (
+              <Button variant="outline" asChild disabled>
+                <Link href={`/workflows/${request.workflowId}`}>
+                  View Details
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : request.status === "pending" && request.isYourTurn ? (
               <Button asChild>
                 <Link href={`/sign/${request.workflowId}`}>
                   <PenTool className="mr-2 h-4 w-4" />
@@ -155,9 +122,61 @@ function SignatureRequestCard({ request }: { request: SignatureRequest }) {
 }
 
 export default function SignaturesPage() {
-  const pendingRequests = signatureRequests.filter((r) => r.status === "pending")
-  const signedRequests = signatureRequests.filter((r) => r.status === "signed")
+  const { data: session, isPending } = useSession()
+  const [pendingRequests, setPendingRequests] = useState<SignatureRequest[]>([])
+  const [signedRequests, setSignedRequests] = useState<SignatureRequest[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchSignatureRequests() {
+      if (!session?.user?.email) return
+
+      try {
+        const response = await fetch('/api/signers/inbox')
+        if (!response.ok) throw new Error('Failed to fetch signature requests')
+
+        const data: InboxResponse = await response.json()
+        setPendingRequests(data.pending)
+        setSignedRequests(data.signed)
+      } catch (error) {
+        console.error('Error fetching signature requests:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    if (session?.user?.email) {
+      fetchSignatureRequests()
+    }
+  }, [session?.user?.email])
+
   const yourTurnCount = pendingRequests.filter((r) => r.isYourTurn).length
+
+  if (isPending || isLoading) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <AppSidebar />
+        <main className="flex-1 pl-64">
+          <div className="mx-auto max-w-4xl px-8 py-8">
+            <p className="text-muted-foreground">Loading signature requests...</p>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!session?.user) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <AppSidebar />
+        <main className="flex-1 pl-64">
+          <div className="mx-auto max-w-4xl px-8 py-8">
+            <p className="text-muted-foreground">Please sign in to view signature requests.</p>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

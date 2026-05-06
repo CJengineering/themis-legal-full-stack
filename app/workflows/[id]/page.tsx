@@ -1,6 +1,7 @@
-"use client"
-
-import { ArrowLeft, HardDrive, Clock, CheckCircle2, AlertCircle, User, ExternalLink, PenTool, Calendar, FileText, RotateCcw, Send, Download } from "lucide-react"
+import { auth } from "@/lib/auth"
+import { headers } from "next/headers"
+import { redirect } from "next/navigation"
+import { ArrowLeft, HardDrive, Clock, CheckCircle2, AlertCircle, User, ExternalLink, PenTool, Calendar, FileText, RotateCcw, Send, Download, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,56 +9,134 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { AppSidebar } from "@/components/app-sidebar"
+import { WorkflowActions } from "@/components/workflow-actions"
 import Link from "next/link"
+import { format } from "date-fns"
 
-interface Signer {
-  name: string
-  email: string
-  role: string
-  signed: boolean
-  signedAt?: string
-  current: boolean
+interface RouteParams {
+  params: Promise<{ id: string }>
 }
 
-interface AuditEntry {
-  action: string
-  user: string
-  timestamp: string
-  details?: string
+async function getWorkflowData(workflowId: string, sessionHeaders: Headers) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const res = await fetch(`${baseUrl}/api/workflows/${workflowId}`, {
+    headers: sessionHeaders,
+    cache: "no-store",
+  })
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      redirect("/login")
+    }
+    throw new Error(`Failed to fetch workflow: ${res.statusText}`)
+  }
+
+  return res.json()
 }
 
-const workflow = {
-  id: "wf-001",
-  title: "Mutual Non-Disclosure Agreement - Tech Ventures Inc.",
-  driveFileId: "1abc123",
-  drivePath: "Legal/NDAs/Tech Ventures",
-  driveUrl: "https://drive.google.com/file/d/1abc123",
-  status: "in_progress" as const,
-  currentStep: 2,
-  totalSteps: 3,
-  createdBy: "James Mitchell",
-  createdAt: "April 5, 2026 at 9:30 AM",
-  updatedAt: "April 8, 2026 at 2:15 PM",
-  retentionDate: "April 5, 2029",
-  signers: [
-    { name: "James Mitchell", email: "james@lawfirm.com", role: "Initiator", signed: true, signedAt: "April 5, 2026 at 10:15 AM", current: false },
-    { name: "John Doe", email: "john@lawfirm.com", role: "Partner", signed: false, current: true },
-    { name: "Sarah Chen", email: "sarah@techventures.com", role: "External Party", signed: false, current: false },
-  ] as Signer[],
-  auditLog: [
-    { action: "Workflow created", user: "James Mitchell", timestamp: "April 5, 2026 at 9:30 AM", details: "Document selected from Google Drive" },
-    { action: "Signature page appended", user: "System", timestamp: "April 5, 2026 at 9:31 AM" },
-    { action: "Notification sent", user: "System", timestamp: "April 5, 2026 at 9:31 AM", details: "Email sent to James Mitchell" },
-    { action: "Document signed", user: "James Mitchell", timestamp: "April 5, 2026 at 10:15 AM" },
-    { action: "Notification sent", user: "System", timestamp: "April 5, 2026 at 10:15 AM", details: "Email sent to John Doe" },
-    { action: "Document viewed", user: "John Doe", timestamp: "April 8, 2026 at 2:15 PM" },
-  ] as AuditEntry[],
+function getStatusBadge(status: string) {
+  switch (status) {
+    case "ACTIVE":
+      return (
+        <Badge className="bg-warning/20 text-warning">
+          <Clock className="mr-1 h-3 w-3" />
+          In Progress
+        </Badge>
+      )
+    case "COMPLETED":
+      return (
+        <Badge className="bg-success/20 text-success">
+          <CheckCircle2 className="mr-1 h-3 w-3" />
+          Completed
+        </Badge>
+      )
+    case "CANCELLED":
+      return (
+        <Badge variant="secondary" className="text-muted-foreground">
+          <AlertCircle className="mr-1 h-3 w-3" />
+          Cancelled
+        </Badge>
+      )
+    case "DRAFT":
+      return (
+        <Badge variant="outline">
+          <FileText className="mr-1 h-3 w-3" />
+          Draft
+        </Badge>
+      )
+    default:
+      return <Badge variant="outline">{status}</Badge>
+  }
 }
 
-const isUserTurn = workflow.signers.find(s => s.current)?.email === "john@lawfirm.com"
+function getAuditIcon(eventType: string) {
+  switch (eventType) {
+    case "SIGNING_COMPLETED":
+    case "FIELD_SIGNED":
+      return <PenTool className="h-4 w-4 text-success" />
+    case "SIGNER_NOTIFIED":
+    case "REMINDER_SENT":
+      return <Send className="h-4 w-4 text-primary" />
+    case "SIGNING_STARTED":
+    case "AUTH_SUCCESS":
+      return <User className="h-4 w-4 text-muted-foreground" />
+    case "WORKFLOW_CANCELLED":
+      return <AlertCircle className="h-4 w-4 text-destructive" />
+    case "WORKFLOW_DELETED":
+      return <Trash2 className="h-4 w-4 text-destructive" />
+    case "WORKFLOW_COMPLETED":
+      return <CheckCircle2 className="h-4 w-4 text-success" />
+    default:
+      return <RotateCcw className="h-4 w-4 text-muted-foreground" />
+  }
+}
 
-export default function WorkflowDetailPage() {
-  const progressPercent = (workflow.currentStep / workflow.totalSteps) * 100
+function formatEventType(eventType: string): string {
+  const mapping: Record<string, string> = {
+    WORKFLOW_CREATED: "Workflow created",
+    SIGNER_NOTIFIED: "Notification sent",
+    SIGNING_STARTED: "Document viewed",
+    FIELD_SIGNED: "Field signed",
+    SIGNING_COMPLETED: "Document signed",
+    WORKFLOW_COMPLETED: "Workflow completed",
+    WORKFLOW_CANCELLED: "Workflow cancelled",
+    WORKFLOW_DELETED: "Workflow deleted",
+    REMINDER_SENT: "Reminder sent",
+    AUTH_SUCCESS: "Authentication successful",
+    AUTH_FAILURE: "Authentication failed",
+  }
+  return mapping[eventType] || eventType
+}
+
+export default async function WorkflowDetailPage({ params }: RouteParams) {
+  // 1. Check authentication
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) {
+    redirect("/login")
+  }
+
+  // 2. Get workflow ID from params
+  const { id: workflowId } = await params
+
+  // 3. Fetch workflow data
+  const sessionHeaders = await headers()
+  const data = await getWorkflowData(workflowId, sessionHeaders)
+
+  const { workflow, auditLog, currentSigner, myRole, isYourTurn } = data
+
+  // 4. Calculate progress
+  const signedCount = workflow.signers.filter((s: { status: string }) => s.status === "SIGNED").length
+  const totalSigners = workflow.signers.length
+  const progressPercent = totalSigners > 0 ? (signedCount / totalSigners) * 100 : 0
+
+  // 5. Build Drive URL (use signed document if available)
+  const isCompleted = workflow.status === 'COMPLETED'
+  const hasSignedFile = workflow.signedFileId != null && workflow.signedFileId !== ''
+  const shouldShowSignedDoc = isCompleted && hasSignedFile
+
+  const driveFileId = shouldShowSignedDoc ? workflow.signedFileId : workflow.driveFileId
+  const driveUrl = `https://drive.google.com/file/d/${driveFileId}/view`
+  const driveButtonText = shouldShowSignedDoc ? 'View Signed Document' : 'View in Drive'
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -75,32 +154,29 @@ export default function WorkflowDetailPage() {
               </Button>
               <div>
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-warning/20 text-warning">
-                    <Clock className="mr-1 h-3 w-3" />
-                    In Progress
-                  </Badge>
-                  <Badge variant="outline">
-                    Step {workflow.currentStep} of {workflow.totalSteps}
-                  </Badge>
+                  {getStatusBadge(workflow.status)}
+                  {workflow.documentNumber && (
+                    <Badge variant="outline">{workflow.documentNumber}</Badge>
+                  )}
                 </div>
                 <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                  {workflow.title}
+                  {workflow.name}
                 </h1>
                 <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <User className="h-4 w-4" />
-                    Created by {workflow.createdBy}
+                    Created by {workflow.creator.name}
                   </div>
                   <div className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
-                    {workflow.createdAt}
+                    {format(new Date(workflow.createdAt), "MMMM d, yyyy 'at' h:mm a")}
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              {isUserTurn && (
+              {isYourTurn && (
                 <Button asChild>
                   <Link href={`/sign/${workflow.id}`}>
                     <PenTool className="mr-2 h-4 w-4" />
@@ -109,9 +185,9 @@ export default function WorkflowDetailPage() {
                 </Button>
               )}
               <Button variant="outline" asChild>
-                <a href={workflow.driveUrl} target="_blank" rel="noopener noreferrer">
+                <a href={driveUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  Open in Drive
+                  {driveButtonText}
                 </a>
               </Button>
             </div>
@@ -135,22 +211,25 @@ export default function WorkflowDetailPage() {
                         <FileText className="h-6 w-6 text-primary" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium text-foreground">{workflow.title}.pdf</p>
+                        <p className="font-medium text-foreground">{workflow.name}</p>
+                        {workflow.documentType && (
+                          <p className="text-sm text-muted-foreground">{workflow.documentType}</p>
+                        )}
                         <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                           <HardDrive className="h-3 w-3" />
-                          <span>{workflow.drivePath}</span>
+                          <span>Google Drive</span>
                         </div>
                       </div>
                       <Button variant="outline" size="sm" asChild>
-                        <a href={workflow.driveUrl} target="_blank" rel="noopener noreferrer">
+                        <a href={driveUrl} target="_blank" rel="noopener noreferrer">
                           <Download className="mr-2 h-4 w-4" />
-                          Download
+                          View
                         </a>
                       </Button>
                     </div>
                   </div>
 
-                  {isUserTurn && (
+                  {isYourTurn && (
                     <div className="mt-4 rounded-lg border border-warning/30 bg-warning/5 p-4">
                       <div className="flex items-center gap-2">
                         <AlertCircle className="h-5 w-5 text-warning" />
@@ -183,58 +262,71 @@ export default function WorkflowDetailPage() {
                     <div className="mb-2 flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Overall Progress</span>
                       <span className="font-medium text-foreground">
-                        {workflow.signers.filter(s => s.signed).length} of {workflow.signers.length} signed
+                        {signedCount} of {totalSigners} signed
                       </span>
                     </div>
                     <Progress value={progressPercent} className="h-2" />
                   </div>
 
                   <div className="space-y-3">
-                    {workflow.signers.map((signer, index) => (
-                      <div
-                        key={index}
-                        className={`flex items-center gap-4 rounded-lg border p-4 ${
-                          signer.current ? "border-warning/50 bg-warning/5" : ""
-                        }`}
-                      >
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                          {index + 1}
-                        </div>
-                        <Avatar className={`h-10 w-10 ${signer.signed ? "ring-2 ring-success ring-offset-2" : signer.current ? "ring-2 ring-warning ring-offset-2" : ""}`}>
-                          <AvatarFallback className={signer.signed ? "bg-success/20" : signer.current ? "bg-warning/20" : "bg-muted"}>
-                            {signer.name.split(" ").map(n => n[0]).join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-foreground">{signer.name}</p>
-                            <Badge variant="outline" className="text-xs">{signer.role}</Badge>
+                    {workflow.signers.map((signer: {
+                      id: string
+                      name: string
+                      email: string
+                      order: number
+                      status: string
+                      signedAt: string | null
+                    }, index: number) => {
+                      const isCurrent = currentSigner?.id === signer.id
+                      const signed = signer.status === "SIGNED"
+
+                      return (
+                        <div
+                          key={signer.id}
+                          className={`flex items-center gap-4 rounded-lg border p-4 ${
+                            isCurrent ? "border-warning/50 bg-warning/5" : ""
+                          }`}
+                        >
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                            {index + 1}
                           </div>
-                          <p className="text-sm text-muted-foreground">{signer.email}</p>
-                        </div>
-                        <div className="text-right">
-                          {signer.signed ? (
-                            <div>
-                              <Badge className="bg-success/10 text-success">
-                                <CheckCircle2 className="mr-1 h-3 w-3" />
-                                Signed
+                          <Avatar className={`h-10 w-10 ${signed ? "ring-2 ring-success ring-offset-2" : isCurrent ? "ring-2 ring-warning ring-offset-2" : ""}`}>
+                            <AvatarFallback className={signed ? "bg-success/20" : isCurrent ? "bg-warning/20" : "bg-muted"}>
+                              {signer.name.split(" ").map(n => n[0]).join("")}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="font-medium text-foreground">{signer.name}</p>
+                            <p className="text-sm text-muted-foreground">{signer.email}</p>
+                          </div>
+                          <div className="text-right">
+                            {signed ? (
+                              <div>
+                                <Badge className="bg-success/10 text-success">
+                                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                                  Signed
+                                </Badge>
+                                {signer.signedAt && (
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {format(new Date(signer.signedAt), "MMM d, yyyy 'at' h:mm a")}
+                                  </p>
+                                )}
+                              </div>
+                            ) : isCurrent ? (
+                              <Badge className="bg-warning/20 text-warning">
+                                <AlertCircle className="mr-1 h-3 w-3" />
+                                Awaiting
                               </Badge>
-                              <p className="mt-1 text-xs text-muted-foreground">{signer.signedAt}</p>
-                            </div>
-                          ) : signer.current ? (
-                            <Badge className="bg-warning/20 text-warning">
-                              <AlertCircle className="mr-1 h-3 w-3" />
-                              Awaiting
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-muted-foreground">
-                              <Clock className="mr-1 h-3 w-3" />
-                              Pending
-                            </Badge>
-                          )}
+                            ) : (
+                              <Badge variant="secondary" className="text-muted-foreground">
+                                <Clock className="mr-1 h-3 w-3" />
+                                Pending
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -249,34 +341,29 @@ export default function WorkflowDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {workflow.auditLog.map((entry, index) => (
-                      <div key={index} className="flex gap-4">
+                    {auditLog.map((entry: {
+                      id: string
+                      eventType: string
+                      timestamp: string
+                      actor: { name: string; email: string }
+                      metadata?: Record<string, unknown>
+                    }, index: number) => (
+                      <div key={entry.id} className="flex gap-4">
                         <div className="flex flex-col items-center">
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                            {entry.action.includes("signed") ? (
-                              <PenTool className="h-4 w-4 text-success" />
-                            ) : entry.action.includes("Notification") ? (
-                              <Send className="h-4 w-4 text-primary" />
-                            ) : entry.action.includes("viewed") ? (
-                              <User className="h-4 w-4 text-muted-foreground" />
-                            ) : (
-                              <RotateCcw className="h-4 w-4 text-muted-foreground" />
-                            )}
+                            {getAuditIcon(entry.eventType)}
                           </div>
-                          {index < workflow.auditLog.length - 1 && (
+                          {index < auditLog.length - 1 && (
                             <div className="mt-2 h-full w-px bg-border" />
                           )}
                         </div>
                         <div className="flex-1 pb-4">
-                          <p className="font-medium text-foreground">{entry.action}</p>
+                          <p className="font-medium text-foreground">{formatEventType(entry.eventType)}</p>
                           <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>{entry.user}</span>
+                            <span>{entry.actor.name}</span>
                             <span>•</span>
-                            <span>{entry.timestamp}</span>
+                            <span>{format(new Date(entry.timestamp), "MMM d, yyyy 'at' h:mm a")}</span>
                           </div>
-                          {entry.details && (
-                            <p className="mt-1 text-sm text-muted-foreground">{entry.details}</p>
-                          )}
                         </div>
                       </div>
                     ))}
@@ -296,33 +383,44 @@ export default function WorkflowDetailPage() {
                   <dl className="space-y-4 text-sm">
                     <div>
                       <dt className="text-muted-foreground">Status</dt>
-                      <dd className="mt-1">
-                        <Badge className="bg-warning/20 text-warning">In Progress</Badge>
-                      </dd>
-                    </div>
-                    <Separator />
-                    <div>
-                      <dt className="text-muted-foreground">Drive Location</dt>
-                      <dd className="mt-1 flex items-center gap-2 font-medium text-foreground">
-                        <HardDrive className="h-4 w-4 text-primary" />
-                        {workflow.drivePath}
-                      </dd>
+                      <dd className="mt-1">{getStatusBadge(workflow.status)}</dd>
                     </div>
                     <Separator />
                     <div>
                       <dt className="text-muted-foreground">Created</dt>
-                      <dd className="mt-1 font-medium text-foreground">{workflow.createdAt}</dd>
+                      <dd className="mt-1 font-medium text-foreground">
+                        {format(new Date(workflow.createdAt), "MMMM d, yyyy 'at' h:mm a")}
+                      </dd>
                     </div>
                     <Separator />
                     <div>
                       <dt className="text-muted-foreground">Last Updated</dt>
-                      <dd className="mt-1 font-medium text-foreground">{workflow.updatedAt}</dd>
+                      <dd className="mt-1 font-medium text-foreground">
+                        {format(new Date(workflow.updatedAt), "MMMM d, yyyy 'at' h:mm a")}
+                      </dd>
                     </div>
-                    <Separator />
-                    <div>
-                      <dt className="text-muted-foreground">Retention Date</dt>
-                      <dd className="mt-1 font-medium text-foreground">{workflow.retentionDate}</dd>
-                    </div>
+                    {workflow.completedAt && (
+                      <>
+                        <Separator />
+                        <div>
+                          <dt className="text-muted-foreground">Completed</dt>
+                          <dd className="mt-1 font-medium text-foreground">
+                            {format(new Date(workflow.completedAt), "MMMM d, yyyy 'at' h:mm a")}
+                          </dd>
+                        </div>
+                      </>
+                    )}
+                    {workflow.retentionDate && (
+                      <>
+                        <Separator />
+                        <div>
+                          <dt className="text-muted-foreground">Retention Date</dt>
+                          <dd className="mt-1 font-medium text-foreground">
+                            {format(new Date(workflow.retentionDate), "MMMM d, yyyy")}
+                          </dd>
+                        </div>
+                      </>
+                    )}
                   </dl>
                 </CardContent>
               </Card>
@@ -332,21 +430,13 @@ export default function WorkflowDetailPage() {
                 <CardHeader>
                   <CardTitle className="text-base">Actions</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <Button variant="outline" className="w-full justify-start" asChild>
-                    <a href={workflow.driveUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      View in Google Drive
-                    </a>
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    <Send className="mr-2 h-4 w-4" />
-                    Send Reminder
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start text-destructive hover:text-destructive">
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Cancel Workflow
-                  </Button>
+                <CardContent>
+                  <WorkflowActions
+                    workflowId={workflow.id}
+                    driveUrl={driveUrl}
+                    myRole={myRole}
+                    workflowStatus={workflow.status}
+                  />
                 </CardContent>
               </Card>
             </div>

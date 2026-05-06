@@ -16,7 +16,10 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { AppSidebar } from "@/components/app-sidebar"
+import { useSession } from "@/lib/auth-client"
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { formatDistanceToNow } from "date-fns"
 
 type WorkflowStatus = "in_progress" | "awaiting_signature" | "completed" | "your_turn"
 
@@ -42,93 +45,81 @@ interface Workflow {
   retentionDate?: string
 }
 
-const workflows: Workflow[] = [
-  {
-    id: "wf-001",
-    title: "Mutual Non-Disclosure Agreement - Tech Ventures Inc.",
-    driveFileId: "1abc123",
-    drivePath: "Legal/NDAs/Tech Ventures",
-    status: "your_turn",
-    currentStep: 2,
-    totalSteps: 3,
-    signers: [
-      { name: "James Mitchell", email: "james@lawfirm.com", signed: true, current: false },
-      { name: "John Doe", email: "john@lawfirm.com", signed: false, current: true },
-      { name: "Sarah Chen", email: "sarah@techventures.com", signed: false, current: false },
-    ],
-    createdBy: "James Mitchell",
-    createdAt: "April 5, 2026",
-    updatedAt: "2 hours ago",
-  },
-  {
-    id: "wf-002",
-    title: "Professional Services Agreement - Consulting Engagement",
-    driveFileId: "2def456",
-    drivePath: "Legal/Contracts/Consulting",
-    status: "awaiting_signature",
-    currentStep: 1,
-    totalSteps: 2,
-    signers: [
-      { name: "Emily Roberts", email: "emily@client.com", signed: false, current: true },
-      { name: "John Doe", email: "john@lawfirm.com", signed: false, current: false },
-    ],
-    createdBy: "John Doe",
-    createdAt: "April 4, 2026",
-    updatedAt: "5 hours ago",
-  },
-  {
-    id: "wf-003",
-    title: "Employment Agreement - Senior Associate Position",
-    driveFileId: "3ghi789",
-    drivePath: "HR/Employment/2026",
-    status: "completed",
-    currentStep: 2,
-    totalSteps: 2,
-    signers: [
-      { name: "HR Director", email: "hr@lawfirm.com", signed: true, current: false },
-      { name: "Sarah Johnson", email: "sarah.j@email.com", signed: true, current: false },
-    ],
-    createdBy: "HR Director",
-    createdAt: "April 1, 2026",
-    updatedAt: "Yesterday",
-    retentionDate: "April 1, 2031",
-  },
-  {
-    id: "wf-004",
-    title: "Partnership Agreement - Global Ventures LLP",
-    driveFileId: "4jkl012",
-    drivePath: "Legal/Partnerships",
-    status: "in_progress",
-    currentStep: 2,
-    totalSteps: 4,
-    signers: [
-      { name: "Partner A", email: "a@global.com", signed: true, current: false },
-      { name: "Partner B", email: "b@global.com", signed: true, current: false },
-      { name: "Partner C", email: "c@global.com", signed: false, current: true },
-      { name: "Partner D", email: "d@global.com", signed: false, current: false },
-    ],
-    createdBy: "John Doe",
-    createdAt: "March 28, 2026",
-    updatedAt: "3 days ago",
-  },
-  {
-    id: "wf-005",
-    title: "Confidentiality Agreement - M&A Transaction",
-    driveFileId: "5mno345",
-    drivePath: "Legal/M&A/Confidential",
-    status: "completed",
-    currentStep: 2,
-    totalSteps: 2,
-    signers: [
-      { name: "Legal Counsel", email: "legal@acquirer.com", signed: true, current: false },
-      { name: "CFO", email: "cfo@target.com", signed: true, current: false },
-    ],
-    createdBy: "James Mitchell",
-    createdAt: "March 20, 2026",
-    updatedAt: "1 week ago",
-    retentionDate: "March 20, 2029",
-  },
-]
+// DB response types
+interface DBSigner {
+  id: string
+  name: string
+  email: string
+  order: number
+  status: "PENDING" | "NOTIFIED" | "SIGNING" | "SIGNED"
+}
+
+interface DBWorkflow {
+  id: string
+  name: string
+  status: "DRAFT" | "ACTIVE" | "COMPLETED" | "CANCELLED"
+  createdAt: string
+  updatedAt: string
+  documentNumber: string | null
+  driveFileId: string
+  creator: {
+    name: string
+  }
+  signers: DBSigner[]
+}
+
+function transformWorkflow(dbWorkflow: DBWorkflow, userEmail: string): Workflow {
+  const signedCount = dbWorkflow.signers.filter(s => s.status === "SIGNED").length
+  const totalSigners = dbWorkflow.signers.length
+
+  // Find current signer (lowest order unsigned signer)
+  const unsignedSigners = dbWorkflow.signers.filter(s => s.status !== "SIGNED")
+  const currentSigner = unsignedSigners.length > 0
+    ? unsignedSigners.reduce((min, s) => s.order < min.order ? s : min)
+    : null
+
+  // Determine if it's user's turn
+  const userSigner = dbWorkflow.signers.find(s => s.email === userEmail)
+  const isUserTurn = userSigner && userSigner.status !== "SIGNED" &&
+    dbWorkflow.signers
+      .filter(s => s.order < userSigner.order)
+      .every(s => s.status === "SIGNED")
+
+  // Determine status
+  let status: WorkflowStatus
+  if (dbWorkflow.status === "COMPLETED") {
+    status = "completed"
+  } else if (isUserTurn) {
+    status = "your_turn"
+  } else if (dbWorkflow.status === "ACTIVE") {
+    status = currentSigner ? "in_progress" : "awaiting_signature"
+  } else {
+    status = "in_progress"
+  }
+
+  return {
+    id: dbWorkflow.id,
+    title: dbWorkflow.name,
+    driveFileId: dbWorkflow.driveFileId,
+    drivePath: dbWorkflow.name,
+    status,
+    currentStep: signedCount,
+    totalSteps: totalSigners,
+    signers: dbWorkflow.signers.map(s => ({
+      name: s.name,
+      email: s.email,
+      signed: s.status === "SIGNED",
+      current: currentSigner?.id === s.id,
+    })),
+    createdBy: dbWorkflow.creator.name,
+    createdAt: new Date(dbWorkflow.createdAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }),
+    updatedAt: formatDistanceToNow(new Date(dbWorkflow.updatedAt), { addSuffix: true }),
+  }
+}
 
 function getStatusConfig(status: WorkflowStatus) {
   switch (status) {
@@ -259,10 +250,76 @@ function WorkflowCard({ workflow }: { workflow: Workflow }) {
 }
 
 export default function WorkflowsPage() {
+  const { data: session, isPending } = useSession()
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchWorkflows() {
+      if (!session?.user?.email) return
+
+      try {
+        const response = await fetch('/api/workflows')
+        if (!response.ok) throw new Error('Failed to fetch workflows')
+
+        const dbWorkflows: DBWorkflow[] = await response.json()
+        const transformed = dbWorkflows.map(w => transformWorkflow(w, session.user.email))
+        setWorkflows(transformed)
+      } catch (error) {
+        console.error('Error fetching workflows:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    if (session?.user?.email) {
+      fetchWorkflows()
+    }
+  }, [session?.user?.email])
+
+  // Filter workflows by search query
+  const filteredWorkflows = workflows.filter(w =>
+    w.title.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  // Tab filters
+  const yourTurnWorkflows = filteredWorkflows.filter(w => w.status === "your_turn")
+  const awaitingOthersWorkflows = filteredWorkflows.filter(w =>
+    w.status === "awaiting_signature" || w.status === "in_progress"
+  )
+  const completedWorkflows = filteredWorkflows.filter(w => w.status === "completed")
+
+  if (isPending || isLoading) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <AppSidebar />
+        <main className="flex-1 pl-64">
+          <div className="mx-auto max-w-6xl px-8 py-8">
+            <p className="text-muted-foreground">Loading workflows...</p>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!session?.user) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <AppSidebar />
+        <main className="flex-1 pl-64">
+          <div className="mx-auto max-w-6xl px-8 py-8">
+            <p className="text-muted-foreground">Please sign in to view workflows.</p>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <AppSidebar />
-      
+
       <main className="flex-1 pl-64">
         <div className="mx-auto max-w-6xl px-8 py-8">
           {/* Header */}
@@ -288,7 +345,7 @@ export default function WorkflowsPage() {
             <div className="flex items-center gap-2">
               <GitBranch className="h-5 w-5 text-primary" />
               <span className="text-sm font-medium text-muted-foreground">
-                {workflows.length} workflows
+                {filteredWorkflows.length} workflows
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -297,6 +354,8 @@ export default function WorkflowsPage() {
                 <Input
                   placeholder="Search workflows..."
                   className="w-64 pl-9"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
               <DropdownMenu>
@@ -334,9 +393,11 @@ export default function WorkflowsPage() {
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="your_turn" className="gap-1.5">
                 Your Turn
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 justify-center bg-warning/20 text-warning">
-                  1
-                </Badge>
+                {yourTurnWorkflows.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 min-w-5 justify-center bg-warning/20 text-warning">
+                    {yourTurnWorkflows.length}
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value="awaiting">Awaiting Others</TabsTrigger>
               <TabsTrigger value="completed">Completed</TabsTrigger>
@@ -344,7 +405,7 @@ export default function WorkflowsPage() {
 
             <TabsContent value="all" className="mt-6">
               <div className="grid gap-4">
-                {workflows.map((workflow) => (
+                {filteredWorkflows.map((workflow) => (
                   <WorkflowCard key={workflow.id} workflow={workflow} />
                 ))}
               </div>
@@ -352,31 +413,25 @@ export default function WorkflowsPage() {
 
             <TabsContent value="your_turn" className="mt-6">
               <div className="grid gap-4">
-                {workflows
-                  .filter((w) => w.status === "your_turn")
-                  .map((workflow) => (
-                    <WorkflowCard key={workflow.id} workflow={workflow} />
-                  ))}
+                {yourTurnWorkflows.map((workflow) => (
+                  <WorkflowCard key={workflow.id} workflow={workflow} />
+                ))}
               </div>
             </TabsContent>
 
             <TabsContent value="awaiting" className="mt-6">
               <div className="grid gap-4">
-                {workflows
-                  .filter((w) => w.status === "awaiting_signature" || w.status === "in_progress")
-                  .map((workflow) => (
-                    <WorkflowCard key={workflow.id} workflow={workflow} />
-                  ))}
+                {awaitingOthersWorkflows.map((workflow) => (
+                  <WorkflowCard key={workflow.id} workflow={workflow} />
+                ))}
               </div>
             </TabsContent>
 
             <TabsContent value="completed" className="mt-6">
               <div className="grid gap-4">
-                {workflows
-                  .filter((w) => w.status === "completed")
-                  .map((workflow) => (
-                    <WorkflowCard key={workflow.id} workflow={workflow} />
-                  ))}
+                {completedWorkflows.map((workflow) => (
+                  <WorkflowCard key={workflow.id} workflow={workflow} />
+                ))}
               </div>
             </TabsContent>
           </Tabs>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { use } from "react"
 import {
   CheckCircle2,
@@ -16,6 +16,7 @@ import {
   HardDrive,
   AlertCircle,
   Lock,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -33,103 +34,37 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { SignaturePad } from "@/components/signature-pad"
 
-// Current authenticated user (in real app, this would come from auth context)
-const currentUser = {
-  id: "u1",
-  name: "John Doe",
-  email: "john@lawfirm.com",
+// Document will be streamed from Google Drive via PDF endpoint
+
+type Workflow = {
+  id: string
+  name: string
+  status: string
+  driveFileId: string
+  documentHash: string
+  creator: {
+    id: string
+    name: string
+    email: string
+  }
+  signers: Array<{
+    id: string
+    name: string
+    email: string
+    order: number
+    status: string
+    signedAt: string | null
+  }>
 }
 
-// Mock workflow data
-const mockWorkflow = {
-  id: "wf-001",
-  title: "Mutual Non-Disclosure Agreement - Tech Ventures Inc.",
-  drivePath: "Legal/NDAs/Tech Ventures",
-  driveFileId: "1abc123",
-  driveUrl: "https://drive.google.com/file/d/1abc123",
-  createdBy: {
-    name: "James Mitchell",
-    email: "james@lawfirm.com",
-  },
-  signers: [
-    {
-      id: "s1",
-      name: "James Mitchell",
-      email: "james@lawfirm.com",
-      role: "Initiator",
-      status: "signed",
-      signedAt: "April 5, 2026 at 10:15 AM",
-      order: 1,
-    },
-    {
-      id: "s2",
-      name: "John Doe",
-      email: "john@lawfirm.com",
-      role: "Partner",
-      status: "current",
-      signedAt: null,
-      order: 2,
-    },
-    {
-      id: "s3",
-      name: "Sarah Chen",
-      email: "sarah@techventures.com",
-      role: "External Party",
-      status: "pending",
-      signedAt: null,
-      order: 3,
-    },
-  ],
+type CurrentSigner = {
+  id: string
+  name: string
+  email: string
+  order: number
+  status: string
+  signedAt: string | null
 }
-
-const documentContent = `
-<div class="legal-document">
-  <div class="document-header">
-    <h1>MUTUAL NON-DISCLOSURE AGREEMENT</h1>
-    <p class="document-meta">Agreement No. NDA-2026-0847</p>
-  </div>
-
-  <p class="preamble">This Mutual Non-Disclosure Agreement (the "Agreement") is entered into as of the date of last signature below (the "Effective Date"), by and between:</p>
-
-  <div class="parties">
-    <p><strong>PARTY A:</strong> Mitchell & Associates LLP, a limited liability partnership organized under the laws of the State of New York, with its principal place of business at 450 Park Avenue, Suite 2800, New York, NY 10022 (hereinafter referred to as "Mitchell Associates")</p>
-    <p style="margin-top: 16px;"><strong>PARTY B:</strong> Tech Ventures Inc., a corporation organized under the laws of the State of Delaware, with its principal place of business at 1 Innovation Drive, San Francisco, CA 94107 (hereinafter referred to as "Tech Ventures")</p>
-    <p style="margin-top: 16px;">Mitchell Associates and Tech Ventures are hereinafter referred to individually as a "Party" and collectively as the "Parties."</p>
-  </div>
-
-  <div class="recitals">
-    <h2>RECITALS</h2>
-    <p><strong>WHEREAS,</strong> the Parties wish to explore a potential business relationship concerning the development and licensing of proprietary software solutions (the "Purpose"); and</p>
-    <p><strong>WHEREAS,</strong> in connection with the Purpose, each Party may disclose to the other certain confidential and proprietary information; and</p>
-    <p><strong>WHEREAS,</strong> the Parties desire to protect such confidential information from unauthorized disclosure and use;</p>
-    <p><strong>NOW, THEREFORE,</strong> in consideration of the mutual covenants and agreements set forth herein, and for other good and valuable consideration, the receipt and sufficiency of which are hereby acknowledged, the Parties agree as follows:</p>
-  </div>
-
-  <h2>ARTICLE I — DEFINITIONS</h2>
-  
-  <p><strong>1.1</strong> "Confidential Information" shall mean any and all non-public information, in any form or medium, whether written, oral, electronic, visual, or otherwise, that is disclosed by one Party (the "Disclosing Party") to the other Party (the "Receiving Party") in connection with the Purpose, including but not limited to: (a) trade secrets, inventions, ideas, processes, formulas, source code, object code, algorithms, data, programs, software, and other works of authorship; (b) technical information, research and development, know-how, designs, drawings, specifications, techniques, and models; (c) business information, including business plans, financial information, marketing plans, customer lists, pricing information, and supplier information.</p>
-
-  <h2>ARTICLE II — OBLIGATIONS OF CONFIDENTIALITY</h2>
-
-  <p><strong>2.1</strong> The Receiving Party agrees to: (a) hold all Confidential Information in strict confidence; (b) not disclose Confidential Information to any third party without the prior written consent of the Disclosing Party; (c) use Confidential Information solely for the Purpose and for no other purpose whatsoever; (d) protect Confidential Information using the same degree of care it uses to protect its own confidential information, but in no event less than reasonable care.</p>
-
-  <h2>ARTICLE III — TERM AND TERMINATION</h2>
-
-  <p><strong>3.1</strong> This Agreement shall remain in effect for a period of two (2) years from the Effective Date, unless earlier terminated by either Party upon thirty (30) days prior written notice to the other Party.</p>
-
-  <p><strong>3.2</strong> The confidentiality obligations set forth in Article II shall survive the termination or expiration of this Agreement for a period of five (5) years following such termination or expiration.</p>
-
-  <h2>ARTICLE IV — GENERAL PROVISIONS</h2>
-
-  <p><strong>4.1</strong> <u>Governing Law.</u> This Agreement shall be governed by and construed in accordance with the laws of the State of New York, without regard to its conflict of laws principles.</p>
-
-  <p><strong>4.2</strong> <u>Entire Agreement.</u> This Agreement constitutes the entire agreement between the Parties with respect to the subject matter hereof and supersedes all prior and contemporaneous agreements and understandings, whether written or oral, relating to such subject matter.</p>
-
-  <div class="execution">
-    <p><strong>IN WITNESS WHEREOF,</strong> the Parties have executed this Mutual Non-Disclosure Agreement as of the Effective Date first written above.</p>
-  </div>
-</div>
-`
 
 export default function SigningPage({
   params,
@@ -143,53 +78,203 @@ export default function SigningPage({
   const [signed, setSigned] = useState(false)
   const [showDocumentPreview, setShowDocumentPreview] = useState(true)
 
-  // Check if current user is authorized to sign
-  const currentSigner = mockWorkflow.signers.find(
-    (s) => s.email === currentUser.email && s.status === "current"
-  )
-  const isAuthorized = currentSigner !== null
-  const isTheirTurn = currentSigner?.status === "current"
+  // API state
+  const [workflow, setWorkflow] = useState<Workflow | null>(null)
+  const [currentSigner, setCurrentSigner] = useState<CurrentSigner | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [waitingFor, setWaitingFor] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const signedCount = mockWorkflow.signers.filter((s) => s.status === "signed").length
-  const totalSigners = mockWorkflow.signers.length
-  const progressPercentage = ((signedCount + (signed ? 1 : 0)) / totalSigners) * 100
+  // Fetch workflow on mount
+  useEffect(() => {
+    async function fetchWorkflow() {
+      try {
+        const res = await fetch(`/api/workflows/${workflowId}`)
 
-  const handleSign = () => {
-    setSigned(true)
-    setShowSignatureDialog(false)
+        if (!res.ok) {
+          if (res.status === 401) {
+            window.location.href = '/login'
+            return
+          }
+
+          const data = await res.json()
+
+          // Handle "not your turn" error
+          if (data.waitingFor) {
+            setWaitingFor(data.waitingFor)
+          }
+
+          throw new Error(data.error || 'Failed to load workflow')
+        }
+
+        const data = await res.json()
+        setWorkflow(data.workflow)
+        setCurrentSigner(data.currentSigner)
+
+        // Check if already signed
+        if (data.currentSigner.status === 'SIGNED') {
+          setSigned(true)
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchWorkflow()
+  }, [workflowId])
+
+  const convertTypedSignatureToBase64 = (typedValue: string): string => {
+    const parts = typedValue.split(':')
+    if (parts[0] !== 'typed') return typedValue // already base64, return as-is
+
+    const fontIndex = parseInt(parts[1])
+    const name = parts.slice(2).join(':')
+
+    const fonts = [
+      'italic 32px Georgia, serif',           // Classic
+      '32px Arial, sans-serif',               // Modern
+      'italic 32px "Brush Script MT", cursive', // Script
+      'bold 32px Arial, sans-serif',          // Bold
+    ]
+
+    const canvas = document.createElement('canvas')
+    canvas.width = 400
+    canvas.height = 100
+    const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, 400, 100)
+    ctx.fillStyle = '#000000'
+    ctx.font = fonts[fontIndex] || fonts[0]
+    ctx.textBaseline = 'middle'
+    ctx.fillText(name, 20, 50)
+
+    return canvas.toDataURL('image/png')
   }
 
-  // Not authorized view
-  if (!isAuthorized) {
+  const handleSign = async () => {
+    if (!signature || !agreed) return
+
+    setIsSubmitting(true)
+    try {
+      const res = await fetch(`/api/workflows/${workflowId}/sign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          signatureBase64: convertTypedSignatureToBase64(signature),
+          consentGiven: agreed,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to submit signature')
+      }
+
+      setSigned(true)
+      setShowSignatureDialog(false)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to sign')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+          <p className="mt-4 text-sm text-muted-foreground">Loading workflow...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state - not your turn
+  if (waitingFor) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-8 pb-8">
-            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-              <Lock className="h-8 w-8 text-destructive" />
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-warning/10">
+              <Clock className="h-8 w-8 text-warning" />
             </div>
             <h1 className="text-xl font-semibold text-foreground">
-              Access Denied
+              Not Your Turn Yet
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              You are not authorized to sign this document, or it is not your turn in the signing order.
+              Waiting for <strong>{waitingFor}</strong> to sign first.
             </p>
-            <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4 text-left">
-              <p className="text-sm font-medium text-foreground">
-                Signed in as: {currentUser.name}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {currentUser.email}
-              </p>
-            </div>
             <p className="mt-4 text-xs text-muted-foreground">
-              If you believe this is an error, please contact the workflow creator.
+              You will be notified when it's your turn.
             </p>
           </CardContent>
         </Card>
       </div>
     )
   }
+
+  // Error state - general
+  if (error && !workflow) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md text-center">
+          <CardContent className="pt-8 pb-8">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <h1 className="text-xl font-semibold text-foreground">
+              Error Loading Workflow
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {error}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!workflow || !currentSigner) {
+    return null
+  }
+
+  // Cancelled workflow state
+  if (workflow.status === 'CANCELLED') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md text-center">
+          <CardContent className="pt-8 pb-8">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <h1 className="text-xl font-semibold text-foreground">
+              Workflow Cancelled
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This workflow has been cancelled. No further signatures are required.
+            </p>
+            <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4 text-left">
+              <p className="text-sm font-medium text-foreground">
+                {workflow.name}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Created by {workflow.creator.name}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const signedCount = workflow.signers.filter((s) => s.status === "SIGNED").length
+  const totalSigners = workflow.signers.length
+  const progressPercentage = ((signedCount + (signed ? 1 : 0)) / totalSigners) * 100
+  const isAuthorized = true // Already checked by API
 
   // Success view after signing
   if (signed) {
@@ -210,7 +295,7 @@ export default function SigningPage({
             </p>
             <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4 text-left">
               <p className="text-sm font-medium text-foreground">
-                {mockWorkflow.title}
+                {workflow.name}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Signed on {new Date().toLocaleDateString("en-US", {
@@ -224,7 +309,7 @@ export default function SigningPage({
             </div>
             <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
               <HardDrive className="h-3 w-3" />
-              Document will sync to: {mockWorkflow.drivePath}
+              Document will be saved to Google Drive
             </div>
           </CardContent>
         </Card>
@@ -249,10 +334,10 @@ export default function SigningPage({
             <div className="flex items-center gap-2 rounded-full border border-border bg-muted/30 px-3 py-1.5">
               <Avatar className="h-6 w-6">
                 <AvatarFallback className="text-xs bg-primary/20">
-                  {currentUser.name.split(" ").map(n => n[0]).join("")}
+                  {currentSigner.name.split(" ").map((n: string) => n[0]).join("")}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm font-medium text-foreground">{currentUser.name}</span>
+              <span className="text-sm font-medium text-foreground">{currentSigner.name}</span>
             </div>
             <Badge variant="outline" className="gap-1.5 hidden sm:flex">
               <Shield className="h-3 w-3" />
@@ -270,7 +355,7 @@ export default function SigningPage({
             <div>
               <p className="font-medium text-foreground">Authenticated Signing Session</p>
               <p className="text-sm text-muted-foreground">
-                You are signing as <strong>{currentUser.name}</strong> ({currentUser.email}). 
+                You are signing as <strong>{currentSigner.name}</strong> ({currentSigner.email}).
                 Only authenticated users can sign documents.
               </p>
             </div>
@@ -295,15 +380,15 @@ export default function SigningPage({
                       </Badge>
                     </div>
                     <CardTitle className="text-xl text-balance">
-                      {mockWorkflow.title}
+                      {workflow.name}
                     </CardTitle>
                     <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
                       <HardDrive className="h-4 w-4" />
-                      {mockWorkflow.drivePath}
+                      Google Drive
                     </div>
                   </div>
                   <Button variant="outline" size="sm" className="shrink-0" asChild>
-                    <a href={mockWorkflow.driveUrl} target="_blank" rel="noopener noreferrer">
+                    <a href={`https://drive.google.com/file/d/${workflow.driveFileId}/view`} target="_blank" rel="noopener noreferrer">
                       <Download className="mr-2 h-4 w-4" />
                       Download
                     </a>
@@ -325,76 +410,13 @@ export default function SigningPage({
                 </Button>
                 {showDocumentPreview && (
                   <div className="bg-muted/20 p-6">
-                    <div className="mx-auto max-w-[8.5in] bg-card shadow-lg rounded-sm">
-                      <div 
-                        className="legal-content p-12 sm:p-16"
-                        dangerouslySetInnerHTML={{ __html: documentContent }}
+                    <div className="mx-auto max-w-[8.5in] bg-card shadow-lg rounded-sm overflow-hidden">
+                      <iframe
+                        src={`/api/drive/files/${workflow.driveFileId}/pdf`}
+                        className="w-full"
+                        style={{ height: '800px' }}
+                        title={workflow.name}
                       />
-                      <style jsx global>{`
-                        .legal-content {
-                          font-family: 'Times New Roman', Times, serif;
-                          font-size: 12px;
-                          line-height: 1.8;
-                          color: hsl(var(--foreground));
-                        }
-                        .legal-content .document-header {
-                          text-align: center;
-                          margin-bottom: 32px;
-                        }
-                        .legal-content .document-header h1 {
-                          font-size: 18px;
-                          font-weight: bold;
-                          letter-spacing: 0.1em;
-                          margin-bottom: 8px;
-                        }
-                        .legal-content .document-meta {
-                          font-size: 11px;
-                          color: hsl(var(--muted-foreground));
-                        }
-                        .legal-content .preamble {
-                          margin-bottom: 24px;
-                          text-align: justify;
-                        }
-                        .legal-content .parties {
-                          margin-bottom: 24px;
-                          text-align: justify;
-                        }
-                        .legal-content .recitals {
-                          margin-bottom: 24px;
-                        }
-                        .legal-content .recitals h2 {
-                          font-size: 12px;
-                          font-weight: bold;
-                          margin-bottom: 12px;
-                          text-transform: uppercase;
-                        }
-                        .legal-content .recitals p {
-                          text-align: justify;
-                          margin-bottom: 12px;
-                          text-indent: 24px;
-                        }
-                        .legal-content h2 {
-                          font-size: 13px;
-                          font-weight: bold;
-                          margin-top: 28px;
-                          margin-bottom: 16px;
-                          text-transform: uppercase;
-                          letter-spacing: 0.05em;
-                        }
-                        .legal-content p {
-                          text-align: justify;
-                          margin-bottom: 16px;
-                          text-indent: 24px;
-                        }
-                        .legal-content .execution {
-                          margin-top: 40px;
-                          padding-top: 20px;
-                          border-top: 1px solid hsl(var(--border));
-                        }
-                        .legal-content .execution p {
-                          text-indent: 0;
-                        }
-                      `}</style>
                     </div>
                   </div>
                 )}
@@ -414,14 +436,14 @@ export default function SigningPage({
                   <div className="flex items-center justify-between mb-6">
                     <div>
                       <p className="text-base font-semibold text-foreground">
-                        {currentUser.name}
+                        {currentSigner.name}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {currentSigner?.role}
+                        Signer {currentSigner.order + 1}
                       </p>
                     </div>
                     <Badge className="bg-warning/20 text-warning">
-                      Step {currentSigner?.order} of {totalSigners}
+                      Step {currentSigner.order + 1} of {totalSigners}
                     </Badge>
                   </div>
 
@@ -473,7 +495,7 @@ export default function SigningPage({
                         className="text-sm leading-relaxed text-muted-foreground"
                       >
                         I acknowledge that I am authorized to sign this document as{" "}
-                        <strong className="text-foreground">{currentUser.name}</strong> and that my 
+                        <strong className="text-foreground">{currentSigner.name}</strong> and that my
                         electronic signature has the same legal effect as a handwritten signature.
                       </label>
                     </div>
@@ -481,10 +503,19 @@ export default function SigningPage({
                       onClick={handleSign}
                       className="w-full"
                       size="lg"
-                      disabled={!agreed}
+                      disabled={!agreed || isSubmitting}
                     >
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Complete Signature
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Complete Signature
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}
@@ -515,11 +546,11 @@ export default function SigningPage({
                 </div>
 
                 <div className="space-y-2">
-                  {mockWorkflow.signers.map((signer, index) => (
+                  {workflow.signers.map((signer, index) => (
                     <div
                       key={signer.id}
                       className={`flex items-center gap-3 rounded-lg border p-3 ${
-                        signer.status === "current" && signer.email === currentUser.email
+                        signer.email === currentSigner.email && signer.status !== "SIGNED"
                           ? "border-primary/50 bg-primary/5"
                           : ""
                       }`}
@@ -528,17 +559,17 @@ export default function SigningPage({
                         {index + 1}
                       </div>
                       <Avatar className={`h-8 w-8 ${
-                        signer.status === "signed" 
-                          ? "ring-2 ring-success ring-offset-1" 
-                          : signer.status === "current" 
-                          ? "ring-2 ring-warning ring-offset-1" 
+                        signer.status === "SIGNED"
+                          ? "ring-2 ring-success ring-offset-1"
+                          : signer.email === currentSigner.email
+                          ? "ring-2 ring-warning ring-offset-1"
                           : ""
                       }`}>
                         <AvatarFallback className={`text-xs ${
-                          signer.status === "signed" 
-                            ? "bg-success/20" 
-                            : signer.status === "current" 
-                            ? "bg-warning/20" 
+                          signer.status === "SIGNED"
+                            ? "bg-success/20"
+                            : signer.email === currentSigner.email
+                            ? "bg-warning/20"
                             : "bg-muted"
                         }`}>
                           {signer.name.split(" ").map(n => n[0]).join("")}
@@ -547,17 +578,17 @@ export default function SigningPage({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">
                           {signer.name}
-                          {signer.email === currentUser.email && (
+                          {signer.email === currentSigner.email && (
                             <span className="ml-1 text-xs text-muted-foreground">(You)</span>
                           )}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {signer.role}
+                          Signer {signer.order + 1}
                         </p>
                       </div>
-                      {signer.status === "signed" ? (
+                      {signer.status === "SIGNED" ? (
                         <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
-                      ) : signer.status === "current" ? (
+                      ) : signer.email === currentSigner.email ? (
                         <Clock className="h-4 w-4 text-warning shrink-0" />
                       ) : (
                         <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -579,12 +610,12 @@ export default function SigningPage({
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Created by:</span>
-                  <span className="font-medium text-foreground">{mockWorkflow.createdBy.name}</span>
+                  <span className="font-medium text-foreground">{workflow.creator.name}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <HardDrive className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground">Location:</span>
-                  <span className="font-medium text-foreground truncate">{mockWorkflow.drivePath}</span>
+                  <span className="font-medium text-foreground truncate">Google Drive</span>
                 </div>
               </CardContent>
             </Card>
@@ -604,7 +635,7 @@ export default function SigningPage({
 
           <SignaturePad
             onSignatureChange={setSignature}
-            signerName={currentUser.name}
+            signerName={currentSigner.name}
           />
 
           <DialogFooter>

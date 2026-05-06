@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Bell,
   CheckCircle2,
@@ -13,6 +13,7 @@ import {
   User,
   Link2,
   FolderOpen,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,14 +31,290 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AppSidebar } from "@/components/app-sidebar"
+import { useToast } from "@/components/ui/use-toast"
+import { useSession } from "@/lib/auth-client"
+
+type UserProfile = {
+  id: string
+  name: string
+  email: string
+  image: string | null
+  company: string | null
+  title: string | null
+  locale: string
+  timezone: string
+}
+
+type DriveSettings = {
+  id?: string
+  saveLocation: string
+  targetFolderId: string | null
+  namingPattern: string
+  autoSave: boolean
+}
+
+type NotificationPreferences = {
+  signatureRequests: boolean
+  reminders: boolean
+  completions: boolean
+  workflowUpdates: boolean
+}
 
 export default function SettingsPage() {
-  const [emailNotifications, setEmailNotifications] = useState(true)
-  const [signatureReminders, setSignatureReminders] = useState(true)
-  const [completionNotifications, setCompletionNotifications] = useState(true)
-  const [workflowUpdates, setWorkflowUpdates] = useState(true)
-  const [isDriveConnected, setIsDriveConnected] = useState(true)
+  const { toast } = useToast()
+  const { data: session, isPending: sessionPending } = useSession()
+
+  // Profile state
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [name, setName] = useState("")
+  const [company, setCompany] = useState("")
+  const [title, setTitle] = useState("")
+  const [locale, setLocale] = useState("en")
+  const [timezone, setTimezone] = useState("UTC")
+
+  // Drive settings state
+  const [driveSettings, setDriveSettings] = useState<DriveSettings | null>(null)
+  const [driveLoading, setDriveLoading] = useState(true)
   const [autoSync, setAutoSync] = useState(true)
+  const [saveLocation, setSaveLocation] = useState("SAME_FOLDER")
+  const [namingPattern, setNamingPattern] = useState("{name}_Signed_{date}")
+
+  // Notification preferences state
+  const [notifications, setNotifications] = useState<NotificationPreferences | null>(null)
+  const [notificationsLoading, setNotificationsLoading] = useState(true)
+  const [signatureRequests, setSignatureRequests] = useState(true)
+  const [reminders, setReminders] = useState(true)
+  const [completions, setCompletions] = useState(true)
+  const [workflowUpdates, setWorkflowUpdates] = useState(true)
+
+  // Loading states for save buttons
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isSavingDrive, setIsSavingDrive] = useState(false)
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false)
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false)
+
+  // Fetch profile data
+  useEffect(() => {
+    if (sessionPending) return
+
+    async function fetchProfile() {
+      try {
+        const res = await fetch('/api/user/profile')
+        if (!res.ok) throw new Error('Failed to fetch profile')
+        const data = await res.json()
+        setProfile(data)
+        setName(data.name || "")
+        setCompany(data.company || "")
+        setTitle(data.title || "")
+        setLocale(data.locale || "en")
+        setTimezone(data.timezone || "UTC")
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load profile data",
+          variant: "destructive",
+        })
+      } finally {
+        setProfileLoading(false)
+      }
+    }
+
+    fetchProfile()
+  }, [sessionPending, toast])
+
+  // Fetch Drive settings
+  useEffect(() => {
+    if (sessionPending) return
+
+    async function fetchDriveSettings() {
+      try {
+        const res = await fetch('/api/user/drive-settings')
+        if (!res.ok) throw new Error('Failed to fetch Drive settings')
+        const data = await res.json()
+        setDriveSettings(data)
+        setAutoSync(data.autoSave ?? true)
+        setSaveLocation(data.saveLocation || "SAME_FOLDER")
+        setNamingPattern(data.namingPattern || "{name}_Signed_{date}")
+      } catch (error) {
+        console.error('Error fetching Drive settings:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load Drive settings",
+          variant: "destructive",
+        })
+      } finally {
+        setDriveLoading(false)
+      }
+    }
+
+    fetchDriveSettings()
+  }, [sessionPending, toast])
+
+  // Fetch notification preferences
+  useEffect(() => {
+    if (sessionPending) return
+
+    async function fetchNotifications() {
+      try {
+        const res = await fetch('/api/user/notifications')
+        if (!res.ok) throw new Error('Failed to fetch notifications')
+        const data = await res.json()
+        setNotifications(data)
+        setSignatureRequests(data.signatureRequests ?? true)
+        setReminders(data.reminders ?? true)
+        setCompletions(data.completions ?? true)
+        setWorkflowUpdates(data.workflowUpdates ?? true)
+      } catch (error) {
+        console.error('Error fetching notifications:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load notification preferences",
+          variant: "destructive",
+        })
+      } finally {
+        setNotificationsLoading(false)
+      }
+    }
+
+    fetchNotifications()
+  }, [sessionPending, toast])
+
+  // Save profile handler
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true)
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, company, title }),
+      })
+
+      if (!res.ok) throw new Error('Failed to save profile')
+
+      const updated = await res.json()
+      setProfile(updated)
+
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      })
+    } catch (error) {
+      console.error('Error saving profile:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save profile",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingProfile(false)
+    }
+  }
+
+  // Save Drive settings handler
+  const handleSaveDriveSettings = async () => {
+    setIsSavingDrive(true)
+    try {
+      const res = await fetch('/api/user/drive-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          autoSave: autoSync,
+          saveLocation,
+          namingPattern,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Failed to save Drive settings')
+
+      const updated = await res.json()
+      setDriveSettings(updated)
+
+      toast({
+        title: "Success",
+        description: "Drive settings updated successfully",
+      })
+    } catch (error) {
+      console.error('Error saving Drive settings:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save Drive settings",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingDrive(false)
+    }
+  }
+
+  // Save notification preferences handler
+  const handleSaveNotifications = async () => {
+    setIsSavingNotifications(true)
+    try {
+      const res = await fetch('/api/user/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          signatureRequests,
+          reminders,
+          completions,
+          workflowUpdates,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Failed to save notification preferences')
+
+      const updated = await res.json()
+      setNotifications(updated)
+
+      toast({
+        title: "Success",
+        description: "Notification preferences updated successfully",
+      })
+    } catch (error) {
+      console.error('Error saving notifications:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save notification preferences",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingNotifications(false)
+    }
+  }
+
+  // Save preferences (locale and timezone)
+  const handleSavePreferences = async () => {
+    setIsSavingPreferences(true)
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale, timezone }),
+      })
+
+      if (!res.ok) throw new Error('Failed to save preferences')
+
+      const updated = await res.json()
+      setProfile(updated)
+
+      toast({
+        title: "Success",
+        description: "Preferences updated successfully",
+      })
+    } catch (error) {
+      console.error('Error saving preferences:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save preferences",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingPreferences(false)
+    }
+  }
+
+  const isDriveConnected = !!session?.user?.email
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -94,55 +371,62 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" defaultValue="John" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" defaultValue="Doe" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      defaultValue="john@lawfirm.com"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Company / Organization</Label>
-                    <Input id="company" defaultValue="Mitchell & Associates LLP" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Job Title</Label>
-                    <Input id="title" defaultValue="Senior Partner" />
-                  </div>
-                  <Button>Save Changes</Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Default Signature</CardTitle>
-                  <CardDescription>
-                    Set your default signature for documents
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-lg border border-border bg-muted/30 p-6">
-                    <div className="border-b border-foreground/20 pb-2">
-                      <span className="font-serif text-2xl italic text-foreground">
-                        John Doe
-                      </span>
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Your current default signature
-                    </p>
-                  </div>
-                  <Button variant="outline">Update Signature</Button>
+                  {profileLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Name</Label>
+                        <Input
+                          id="name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email Address</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="email"
+                            type="email"
+                            value={profile?.email || ""}
+                            disabled
+                            className="flex-1"
+                          />
+                          <Lock className="h-4 w-4 self-center text-muted-foreground" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Email is managed by your Google account and cannot be changed here
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="company">Company / Organization</Label>
+                        <Input
+                          id="company"
+                          value={company}
+                          onChange={(e) => setCompany(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="title">Job Title</Label>
+                        <Input
+                          id="title"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                        />
+                      </div>
+                      <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
+                        {isSavingProfile ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save Changes"
+                        )}
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -200,22 +484,13 @@ export default function SettingsPage() {
                           </div>
                           <div>
                             <p className="text-sm font-medium text-foreground">
-                              john@lawfirm.com
+                              {session?.user?.email || ""}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               Google Account
                             </p>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setIsDriveConnected(false)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <Unlink className="mr-2 h-4 w-4" />
-                          Disconnect
-                        </Button>
                       </div>
                       <div className="rounded-lg border border-border bg-muted/30 p-4">
                         <p className="text-sm font-medium text-foreground">How it works</p>
@@ -232,7 +507,7 @@ export default function SettingsPage() {
                       <p className="text-sm text-muted-foreground mb-4">
                         Connect Google Drive to select documents and save signed copies.
                       </p>
-                      <Button onClick={() => setIsDriveConnected(true)}>
+                      <Button>
                         <Link2 className="mr-2 h-4 w-4" />
                         Connect Google Drive
                       </Button>
@@ -250,67 +525,76 @@ export default function SettingsPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Auto-sync completed workflows</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Automatically save signed documents when workflows complete
-                        </p>
-                      </div>
-                      <Switch
-                        checked={autoSync}
-                        onCheckedChange={setAutoSync}
-                      />
-                    </div>
+                    {driveLoading ? (
+                      <p className="text-sm text-muted-foreground">Loading...</p>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Auto-sync completed workflows</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Automatically save signed documents when workflows complete
+                            </p>
+                          </div>
+                          <Switch
+                            checked={autoSync}
+                            onCheckedChange={setAutoSync}
+                          />
+                        </div>
 
-                    <div className="space-y-2">
-                      <Label>Default save location</Label>
-                      <Select defaultValue="same">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="same">
-                            <div className="flex items-center gap-2">
-                              <FolderOpen className="h-4 w-4" />
-                              Same folder as original
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="signed">
-                            <div className="flex items-center gap-2">
-                              <FolderOpen className="h-4 w-4" />
-                              Signed Documents folder
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="ask">
-                            <div className="flex items-center gap-2">
-                              <FolderOpen className="h-4 w-4" />
-                              Ask each time
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        <div className="space-y-2">
+                          <Label>Default save location</Label>
+                          <Select value={saveLocation} onValueChange={setSaveLocation}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="SAME_FOLDER">
+                                <div className="flex items-center gap-2">
+                                  <FolderOpen className="h-4 w-4" />
+                                  Same folder as original
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="SPECIFIC_FOLDER">
+                                <div className="flex items-center gap-2">
+                                  <FolderOpen className="h-4 w-4" />
+                                  Signed Documents folder
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="ASK">
+                                <div className="flex items-center gap-2">
+                                  <FolderOpen className="h-4 w-4" />
+                                  Ask each time
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                    <div className="space-y-2">
-                      <Label>File naming convention</Label>
-                      <Select defaultValue="title-signed">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="title-signed">
-                            Document Title - Signed
-                          </SelectItem>
-                          <SelectItem value="title-date">
-                            Document Title - Date Signed
-                          </SelectItem>
-                          <SelectItem value="original">
-                            Keep original name
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        <div className="space-y-2">
+                          <Label>File naming pattern</Label>
+                          <Input
+                            value={namingPattern}
+                            onChange={(e) => setNamingPattern(e.target.value)}
+                            placeholder="{name}_Signed_{date}"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Use {"{name}"} for document name and {"{date}"} for current date
+                          </p>
+                        </div>
+
+                        <Button onClick={handleSaveDriveSettings} disabled={isSavingDrive}>
+                          {isSavingDrive ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Save Settings"
+                          )}
+                        </Button>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -326,57 +610,73 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Signature requests</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Receive emails when it&apos;s your turn to sign
-                      </p>
-                    </div>
-                    <Switch
-                      checked={emailNotifications}
-                      onCheckedChange={setEmailNotifications}
-                    />
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Signature reminders</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Receive reminders for pending signatures
-                      </p>
-                    </div>
-                    <Switch
-                      checked={signatureReminders}
-                      onCheckedChange={setSignatureReminders}
-                    />
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Workflow completion</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Receive emails when a workflow is fully completed
-                      </p>
-                    </div>
-                    <Switch
-                      checked={completionNotifications}
-                      onCheckedChange={setCompletionNotifications}
-                    />
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label>Workflow updates</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Receive updates when signers complete their steps
-                      </p>
-                    </div>
-                    <Switch
-                      checked={workflowUpdates}
-                      onCheckedChange={setWorkflowUpdates}
-                    />
-                  </div>
+                  {notificationsLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Signature requests</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Receive emails when it&apos;s your turn to sign
+                          </p>
+                        </div>
+                        <Switch
+                          checked={signatureRequests}
+                          onCheckedChange={setSignatureRequests}
+                        />
+                      </div>
+                      <Separator />
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Signature reminders</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Receive reminders for pending signatures
+                          </p>
+                        </div>
+                        <Switch
+                          checked={reminders}
+                          onCheckedChange={setReminders}
+                        />
+                      </div>
+                      <Separator />
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Workflow completion</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Receive emails when a workflow is fully completed
+                          </p>
+                        </div>
+                        <Switch
+                          checked={completions}
+                          onCheckedChange={setCompletions}
+                        />
+                      </div>
+                      <Separator />
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Workflow updates</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Receive updates when signers complete their steps
+                          </p>
+                        </div>
+                        <Switch
+                          checked={workflowUpdates}
+                          onCheckedChange={setWorkflowUpdates}
+                        />
+                      </div>
+                      <Button onClick={handleSaveNotifications} disabled={isSavingNotifications}>
+                        {isSavingNotifications ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save Preferences"
+                        )}
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -385,52 +685,31 @@ export default function SettingsPage() {
             <TabsContent value="security" className="mt-6 space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Password</CardTitle>
+                  <CardTitle className="text-base">Authentication</CardTitle>
                   <CardDescription>
-                    Update your password
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="currentPassword">Current Password</Label>
-                    <Input id="currentPassword" type="password" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="newPassword">New Password</Label>
-                    <Input id="newPassword" type="password" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                    <Input id="confirmPassword" type="password" />
-                  </div>
-                  <Button>Update Password</Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Two-Factor Authentication</CardTitle>
-                  <CardDescription>
-                    Add an extra layer of security to your account
+                    Your account is secured via Google OAuth
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card">
                         <Shield className="h-5 w-5 text-muted-foreground" />
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground">
-                          Two-Factor Authentication
+                          {session?.user?.email || ""}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Not enabled
+                          Google OAuth Authentication
                         </p>
                       </div>
                     </div>
-                    <Button variant="outline">Enable</Button>
                   </div>
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Password management is handled by your Google account.
+                    Two-factor authentication should be enabled in your Google account settings.
+                  </p>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -445,50 +724,52 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Language</Label>
-                    <Select defaultValue="en">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="en">English (US)</SelectItem>
-                        <SelectItem value="en-gb">English (UK)</SelectItem>
-                        <SelectItem value="es">Spanish</SelectItem>
-                        <SelectItem value="fr">French</SelectItem>
-                        <SelectItem value="de">German</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Timezone</Label>
-                    <Select defaultValue="est">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pst">Pacific Time (PT)</SelectItem>
-                        <SelectItem value="mst">Mountain Time (MT)</SelectItem>
-                        <SelectItem value="cst">Central Time (CT)</SelectItem>
-                        <SelectItem value="est">Eastern Time (ET)</SelectItem>
-                        <SelectItem value="utc">UTC</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Date Format</Label>
-                    <Select defaultValue="mdy">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mdy">MM/DD/YYYY</SelectItem>
-                        <SelectItem value="dmy">DD/MM/YYYY</SelectItem>
-                        <SelectItem value="ymd">YYYY-MM-DD</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button>Save Preferences</Button>
+                  {profileLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Language</Label>
+                        <Select value={locale} onValueChange={setLocale}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="en">English (US)</SelectItem>
+                            <SelectItem value="en-gb">English (UK)</SelectItem>
+                            <SelectItem value="es">Spanish</SelectItem>
+                            <SelectItem value="fr">French</SelectItem>
+                            <SelectItem value="de">German</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Timezone</Label>
+                        <Select value={timezone} onValueChange={setTimezone}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="America/Los_Angeles">Pacific Time (PT)</SelectItem>
+                            <SelectItem value="America/Denver">Mountain Time (MT)</SelectItem>
+                            <SelectItem value="America/Chicago">Central Time (CT)</SelectItem>
+                            <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
+                            <SelectItem value="UTC">UTC</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button onClick={handleSavePreferences} disabled={isSavingPreferences}>
+                        {isSavingPreferences ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save Preferences"
+                        )}
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

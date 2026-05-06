@@ -1,38 +1,50 @@
 import { GitBranch, Clock, CheckCircle2, PenTool } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 
-const stats = [
-  {
-    label: "Active Workflows",
-    value: "5",
-    icon: GitBranch,
-    description: "In progress",
-    color: "bg-primary/10 text-primary",
-  },
-  {
-    label: "Awaiting Signatures",
-    value: "8",
-    icon: Clock,
-    description: "From others",
-    color: "bg-accent/10 text-accent",
-  },
-  {
-    label: "Completed",
-    value: "12",
-    icon: CheckCircle2,
-    description: "This month",
-    color: "bg-success/10 text-success",
-  },
-  {
-    label: "Your Turn to Sign",
-    value: "2",
-    icon: PenTool,
-    description: "Action required",
-    color: "bg-warning/10 text-warning",
-  },
-]
+interface StatsCardsProps {
+  activeWorkflows: number
+  awaitingSignatures: number
+  completedThisMonth: number
+  yourTurn: number
+}
 
-export function StatsCards() {
+export function StatsCards({
+  activeWorkflows,
+  awaitingSignatures,
+  completedThisMonth,
+  yourTurn,
+}: StatsCardsProps) {
+  const stats = [
+    {
+      label: "Active Workflows",
+      value: activeWorkflows.toString(),
+      icon: GitBranch,
+      description: "In progress",
+      color: "bg-primary/10 text-primary",
+    },
+    {
+      label: "Awaiting Signatures",
+      value: awaitingSignatures.toString(),
+      icon: Clock,
+      description: "From others",
+      color: "bg-accent/10 text-accent",
+    },
+    {
+      label: "Completed",
+      value: completedThisMonth.toString(),
+      icon: CheckCircle2,
+      description: "This month",
+      color: "bg-success/10 text-success",
+    },
+    {
+      label: "Your Turn to Sign",
+      value: yourTurn.toString(),
+      icon: PenTool,
+      description: "Action required",
+      color: "bg-warning/10 text-warning",
+    },
+  ]
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {stats.map((stat) => (
