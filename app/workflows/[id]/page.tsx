@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { writeAuditLog } from "@/lib/audit"
 import { headers } from "next/headers"
-import { redirect } from "next/navigation"
+import { redirect, notFound } from "next/navigation"
 import { ArrowLeft, HardDrive, Clock, CheckCircle2, AlertCircle, User, ExternalLink, PenTool, Calendar, FileText, RotateCcw, Send, Download, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,38 +17,6 @@ import { format } from "date-fns"
 
 interface RouteParams {
   params: Promise<{ id: string }>
-}
-
-function getBaseUrl() {
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`
-  }
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-}
-
-async function getWorkflowData(workflowId: string, sessionHeaders: Headers) {
-  const baseUrl = getBaseUrl()
-  
-  // Extract only needed headers to avoid Next.js ReadonlyHeaders mutation error
-  const fetchHeaders: Record<string, string> = {}
-  const cookie = sessionHeaders.get("cookie")
-  if (cookie) fetchHeaders.cookie = cookie
-  const authorization = sessionHeaders.get("authorization")
-  if (authorization) fetchHeaders.authorization = authorization
-
-  const res = await fetch(`${baseUrl}/api/workflows/${workflowId}`, {
-    headers: fetchHeaders,
-    cache: "no-store",
-  })
-
-  if (!res.ok) {
-    if (res.status === 401) {
-      redirect("/login")
-    }
-    throw new Error(`Failed to fetch workflow: ${res.statusText}`)
-  }
-
-  return res.json()
 }
 
 function getStatusBadge(status: string) {
@@ -133,11 +103,148 @@ export default async function WorkflowDetailPage({ params }: RouteParams) {
   // 2. Get workflow ID from params
   const { id: workflowId } = await params
 
-  // 3. Fetch workflow data
-  const sessionHeaders = await headers()
-  const data = await getWorkflowData(workflowId, sessionHeaders)
+  // 3. Fetch workflow data directly from database
+  const workflowData = await prisma.workflow.findUnique({
+    where: { id: workflowId },
+    include: {
+      creator: {
+        select: { id: true, name: true, email: true },
+      },
+      signers: {
+        orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          order: true,
+          status: true,
+          signedAt: true,
+          consentGiven: true,
+          lastReminderSentAt: true,
+        },
+      },
+      fields: {
+        select: {
+          id: true,
+          signerId: true,
+          type: true,
+          value: true,
+          completedAt: true,
+        },
+      },
+      auditLogs: {
+        orderBy: { timestamp: 'desc' },
+        select: {
+          id: true,
+          eventType: true,
+          timestamp: true,
+          metadata: true,
+          actor: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      },
+    },
+  })
 
-  const { workflow, auditLog, currentSigner, myRole, isYourTurn } = data
+  if (!workflowData) {
+    notFound()
+  }
+
+  // 4. Determine user's role: creator, signer, or both
+  const isCreator = workflowData.creatorId === session.user.id
+  const signerRecord = workflowData.signers.find(
+    (s) => s.email.toLowerCase() === session.user.email.toLowerCase()
+  )
+  const isSigner = !!signerRecord
+
+  // Authorization: must be creator OR signer
+  if (!isCreator && !isSigner) {
+    redirect("/login")
+  }
+
+  const myRole = isCreator && isSigner ? 'both' : isCreator ? 'creator' : 'signer'
+
+  // 5. If user is a signer, perform sequential order check
+  let isYourTurn = false
+  if (isSigner && signerRecord) {
+    const previousSigners = workflowData.signers.filter(
+      (s) => s.order < signerRecord.order
+    )
+    const unsignedPrevious = previousSigners.find((s) => s.status !== 'SIGNED')
+
+    // It's your turn if all previous signers have signed AND you haven't signed yet
+    isYourTurn = !unsignedPrevious && signerRecord.status !== 'SIGNED'
+
+    // 6. Write SIGNING_STARTED audit log (only if accessing for signing)
+    if (isYourTurn) {
+      const hasStartedBefore = await prisma.auditLog.findFirst({
+        where: {
+          workflowId,
+          eventType: 'SIGNING_STARTED',
+          actorId: session.user.id,
+        },
+      })
+
+      if (!hasStartedBefore) {
+        const headersList = await headers()
+        const ipAddress =
+          headersList.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown'
+        const userAgent = headersList.get('user-agent') ?? 'unknown'
+
+        await writeAuditLog({
+          workflowId,
+          eventType: 'SIGNING_STARTED',
+          actorId: session.user.id,
+          ipAddress,
+          userAgent,
+          metadata: {
+            signerId: signerRecord.id,
+            signerOrder: signerRecord.order,
+          },
+        })
+      }
+    }
+  }
+
+  // 7. Calculate current signer (lowest order unsigned)
+  const currentSigner = workflowData.signers.find((s) => s.status !== 'SIGNED') ?? null
+
+  // 8. Structure data for component (convert dates to strings for JSON serialization)
+  const workflow = {
+    id: workflowData.id,
+    name: workflowData.name,
+    status: workflowData.status,
+    driveFileId: workflowData.driveFileId,
+    driveFolderId: workflowData.driveFolderId,
+    documentHash: workflowData.documentHash,
+    documentNumber: workflowData.documentNumber,
+    documentType: workflowData.documentType,
+    retentionDate: workflowData.retentionDate?.toISOString() ?? null,
+    signedFileId: workflowData.signedFileId,
+    createdAt: workflowData.createdAt.toISOString(),
+    updatedAt: workflowData.updatedAt.toISOString(),
+    completedAt: workflowData.completedAt?.toISOString() ?? null,
+    cancelledAt: workflowData.cancelledAt?.toISOString() ?? null,
+    creator: workflowData.creator,
+    signers: workflowData.signers.map((s) => ({
+      id: s.id,
+      name: s.name,
+      email: s.email,
+      order: s.order,
+      status: s.status,
+      signedAt: s.signedAt?.toISOString() ?? null,
+    })),
+    fields: workflowData.fields,
+  }
+
+  const auditLog = workflowData.auditLogs.map((log) => ({
+    id: log.id,
+    eventType: log.eventType,
+    timestamp: log.timestamp.toISOString(),
+    metadata: log.metadata as Record<string, unknown> | undefined,
+    actor: log.actor,
+  }))
 
   // 4. Calculate progress
   const signedCount = workflow.signers.filter((s: { status: string }) => s.status === "SIGNED").length
