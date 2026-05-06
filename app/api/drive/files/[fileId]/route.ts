@@ -3,6 +3,9 @@ import { getDriveClient } from '@/lib/drive'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/drive/files/[fileId]
  * Returns metadata for a single file.

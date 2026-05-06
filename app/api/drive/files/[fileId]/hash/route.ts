@@ -6,6 +6,9 @@ import { NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { Readable } from 'stream'
 
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/drive/files/[fileId]/hash
  * Streams file from Drive and computes SHA-256 hash for document integrity.

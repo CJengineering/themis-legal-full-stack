@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/drive/files/[fileId]/pdf
  * Streams a PDF file from Google Drive.
