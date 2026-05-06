@@ -113,7 +113,7 @@ export default function SigningPage({
         setCurrentSigner(data.currentSigner)
 
         // Check if already signed
-        if (data.currentSigner.status === 'SIGNED') {
+        if (data.currentSigner && data.currentSigner.status === 'SIGNED') {
           setSigned(true)
         }
       } catch (err) {

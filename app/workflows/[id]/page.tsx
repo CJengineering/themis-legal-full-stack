@@ -17,10 +17,25 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
+function getBaseUrl() {
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`
+  }
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+}
+
 async function getWorkflowData(workflowId: string, sessionHeaders: Headers) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const baseUrl = getBaseUrl()
+  
+  // Extract only needed headers to avoid Next.js ReadonlyHeaders mutation error
+  const fetchHeaders: Record<string, string> = {}
+  const cookie = sessionHeaders.get("cookie")
+  if (cookie) fetchHeaders.cookie = cookie
+  const authorization = sessionHeaders.get("authorization")
+  if (authorization) fetchHeaders.authorization = authorization
+
   const res = await fetch(`${baseUrl}/api/workflows/${workflowId}`, {
-    headers: sessionHeaders,
+    headers: fetchHeaders,
     cache: "no-store",
   })
 
