@@ -57,23 +57,53 @@ export default async function DashboardPage() {
   const baseUrl = getBaseUrl()
 
   // Fetch stats and workflows in parallel
-  const [statsRes, workflowsRes] = await Promise.all([
-    fetch(`${baseUrl}/api/workflows/stats`, {
-      headers: {
-        cookie: (await headers()).get('cookie') || '',
-      },
-      cache: 'no-store',
-    }),
-    fetch(`${baseUrl}/api/workflows`, {
-      headers: {
-        cookie: (await headers()).get('cookie') || '',
-      },
-      cache: 'no-store',
-    }),
-  ])
+  let stats: Stats
+  let workflows: Workflow[]
 
-  const stats: Stats = await statsRes.json()
-  const workflows: Workflow[] = await workflowsRes.json()
+  try {
+    const [statsRes, workflowsRes] = await Promise.all([
+      fetch(`${baseUrl}/api/workflows/stats`, {
+        headers: {
+          cookie: (await headers()).get('cookie') || '',
+        },
+        cache: 'no-store',
+      }),
+      fetch(`${baseUrl}/api/workflows`, {
+        headers: {
+          cookie: (await headers()).get('cookie') || '',
+        },
+        cache: 'no-store',
+      }),
+    ])
+
+    console.log('Stats response status:', statsRes.status)
+    console.log('Workflows response status:', workflowsRes.status)
+
+    if (!statsRes.ok) {
+      const errorText = await statsRes.text()
+      console.error('Stats API error:', errorText)
+      throw new Error(`Stats API failed with status ${statsRes.status}`)
+    }
+
+    if (!workflowsRes.ok) {
+      const errorText = await workflowsRes.text()
+      console.error('Workflows API error:', errorText)
+      throw new Error(`Workflows API failed with status ${workflowsRes.status}`)
+    }
+
+    stats = await statsRes.json()
+    workflows = await workflowsRes.json()
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error)
+    // Fallback to empty data
+    stats = {
+      activeWorkflows: 0,
+      awaitingSignatures: 0,
+      completedThisMonth: 0,
+      yourTurn: 0,
+    }
+    workflows = []
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
