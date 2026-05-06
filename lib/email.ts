@@ -3,7 +3,19 @@ import { prisma } from '@/lib/prisma'
 import { writeAuditLog } from '@/lib/audit'
 import { saveSignedDocumentToDrive } from '@/lib/pdf'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialization to avoid build-time errors when env vars aren't available
+let resendInstance: Resend | null = null
+function getResend(): Resend {
+  if (!resendInstance) {
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY environment variable is not set')
+    }
+    resendInstance = new Resend(apiKey)
+  }
+  return resendInstance
+}
+
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 const BRAND_COLOR = '#be185d'
@@ -196,7 +208,7 @@ export async function sendSignerNotification({
       ctaUrl: signUrl,
     })
 
-    const result = await resend.emails.send({
+    const result = await getResend().emails.send({
       from: FROM_EMAIL,
       to: DEV_EMAIL_OVERRIDE ?? to,
       subject: `Signature Required: ${workflowName}`,
@@ -254,7 +266,7 @@ export async function sendWorkflowCompleted({
       ctaUrl: driveFileUrl,
     })
 
-    const result = await resend.emails.send({
+    const result = await getResend().emails.send({
       from: FROM_EMAIL,
       to: DEV_EMAIL_OVERRIDE ?? to,
       subject: `Workflow Completed: ${workflowName}`,
@@ -301,7 +313,7 @@ export async function sendWorkflowCancelled({
       body,
     })
 
-    const result = await resend.emails.send({
+    const result = await getResend().emails.send({
       from: FROM_EMAIL,
       to: DEV_EMAIL_OVERRIDE ?? to,
       subject: `Workflow Cancelled: ${workflowName}`,
@@ -364,7 +376,7 @@ export async function sendReminderEmail({
       ctaUrl: signUrl,
     })
 
-    const result = await resend.emails.send({
+    const result = await getResend().emails.send({
       from: FROM_EMAIL,
       to: DEV_EMAIL_OVERRIDE ?? to,
       subject: `Reminder: Signature Required for ${workflowName}`,
