@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { StatsCards } from "@/components/stats-cards"
@@ -46,64 +47,88 @@ interface Stats {
 }
 
 export default async function DashboardPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
+  console.log('=== DASHBOARD PAGE START ===')
 
-  if (!session) {
+  let session
+  try {
+    session = await auth.api.getSession({
+      headers: await headers(),
+    })
+    console.log('Session retrieved:', session ? 'YES' : 'NO')
+  } catch (error) {
+    console.error('Session error:', error)
     redirect("/login")
   }
 
-  const baseUrl = getBaseUrl()
+  if (!session) {
+    console.log('No session, redirecting to login')
+    redirect("/login")
+  }
 
-  // Fetch stats and workflows in parallel
-  let stats: Stats
-  let workflows: Workflow[]
+  console.log('User:', session.user.email)
+
+  // Skip API calls for now - just call database directly
+  let stats: Stats = {
+    activeWorkflows: 0,
+    awaitingSignatures: 0,
+    completedThisMonth: 0,
+    yourTurn: 0,
+  }
+  let workflows: Workflow[] = []
 
   try {
-    const [statsRes, workflowsRes] = await Promise.all([
-      fetch(`${baseUrl}/api/workflows/stats`, {
-        headers: {
-          cookie: (await headers()).get('cookie') || '',
+    console.log('Fetching workflows from database...')
+    const dbWorkflows = await prisma.workflow.findMany({
+      where: {
+        OR: [
+          { creatorId: session.user.id },
+          {
+            signers: {
+              some: {
+                email: session.user.email,
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        documentNumber: true,
+        driveFileId: true,
+        signers: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            order: true,
+            status: true,
+          },
+          orderBy: {
+            order: 'asc',
+          },
         },
-        cache: 'no-store',
-      }),
-      fetch(`${baseUrl}/api/workflows`, {
-        headers: {
-          cookie: (await headers()).get('cookie') || '',
-        },
-        cache: 'no-store',
-      }),
-    ])
-
-    console.log('Stats response status:', statsRes.status)
-    console.log('Workflows response status:', workflowsRes.status)
-
-    if (!statsRes.ok) {
-      const errorText = await statsRes.text()
-      console.error('Stats API error:', errorText)
-      throw new Error(`Stats API failed with status ${statsRes.status}`)
-    }
-
-    if (!workflowsRes.ok) {
-      const errorText = await workflowsRes.text()
-      console.error('Workflows API error:', errorText)
-      throw new Error(`Workflows API failed with status ${workflowsRes.status}`)
-    }
-
-    stats = await statsRes.json()
-    workflows = await workflowsRes.json()
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      take: 10,
+    })
+    // Convert dates to strings
+    workflows = dbWorkflows.map(w => ({
+      ...w,
+      createdAt: w.createdAt.toISOString(),
+      updatedAt: w.updatedAt.toISOString(),
+    }))
+    console.log('Workflows fetched:', workflows.length)
   } catch (error) {
-    console.error('Error fetching dashboard data:', error)
-    // Fallback to empty data
-    stats = {
-      activeWorkflows: 0,
-      awaitingSignatures: 0,
-      completedThisMonth: 0,
-      yourTurn: 0,
-    }
-    workflows = []
+    console.error('Database error:', error)
   }
+
+  console.log('=== DASHBOARD PAGE END ===')
 
   return (
     <div className="flex min-h-screen bg-background">
