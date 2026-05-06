@@ -2,8 +2,9 @@
 
 import { signIn } from "@/lib/auth-client"
 import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams()
   const from = searchParams.get("from") || "/dashboard"
 
@@ -54,5 +55,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   )
 }

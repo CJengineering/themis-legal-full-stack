@@ -8,6 +8,9 @@ import { NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { Readable } from 'stream'
 
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   // Authenticate user
   const session = await auth.api.getSession({

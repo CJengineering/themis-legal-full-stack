@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   // Authenticate user
   const session = await auth.api.getSession({

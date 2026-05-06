@@ -5,6 +5,9 @@ import { prisma } from '@/lib/prisma'
  * Health check endpoint
  * Tests database connectivity and returns server status
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     // Execute a simple query to verify database connection

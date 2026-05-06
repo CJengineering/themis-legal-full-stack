@@ -7,6 +7,9 @@ import { NextResponse } from 'next/server'
  * GET /api/drive/search?q=contract
  * Searches file names across Drive for PDF/DOCX files.
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request) {
   // 1. Check authentication
   const session = await auth.api.getSession({ headers: await headers() })

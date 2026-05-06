@@ -8,6 +8,9 @@ import { NextResponse } from 'next/server'
  * Lists files and folders in the specified folder (or root if no folderId).
  * Returns only folders, PDFs, and DOCX files.
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request) {
   // 1. Check authentication
   const session = await auth.api.getSession({ headers: await headers() })

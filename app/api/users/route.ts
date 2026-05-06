@@ -8,6 +8,9 @@ import { NextResponse } from 'next/server'
  * Returns all authorized users (from allowlist).
  * Used for selecting signers in workflow creation.
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   // 1. Check authentication
   const session = await auth.api.getSession({ headers: await headers() })

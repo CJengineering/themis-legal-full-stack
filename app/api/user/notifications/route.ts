@@ -23,6 +23,9 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
  * GET /api/user/notifications
  * Returns current user's notification preferences from User.notificationPreferences JSON field
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) {

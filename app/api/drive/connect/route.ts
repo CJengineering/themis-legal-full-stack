@@ -3,6 +3,9 @@ import { hasDriveAccess } from '@/lib/drive'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+// Prevent static optimization - this route needs runtime data
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/drive/connect
  * Returns whether the current user has Google Drive connected.

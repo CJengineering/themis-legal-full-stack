@@ -7,6 +7,9 @@ import { NextResponse } from 'next/server'
  * GET /api/user/profile
  * Returns current user's profile data
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) {

@@ -15,6 +15,9 @@ const DEFAULT_DRIVE_SETTINGS = {
  * GET /api/user/drive-settings
  * Returns current user's Drive settings, or defaults if none exist
  */
+// Prevent static optimization
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) {
