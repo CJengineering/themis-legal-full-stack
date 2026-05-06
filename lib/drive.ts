@@ -5,7 +5,7 @@ import { prisma } from './prisma'
  * Get a configured Google Drive v3 client for the given user.
  * Automatically refreshes expired access tokens.
  *
- * @throws Error if user has no Google account connected or refresh fails
+ * @throws Error if user has no Google account connected or refresh failsr
  */
 export async function getDriveClient(userId: string) {
   // Fetch the user's Google OAuth account
