@@ -6,7 +6,13 @@ import { writeAuditLog } from "./audit"
 // Hardcoded email allowlist (will move to env var + DB later)
 const AUTHORIZED_EMAILS = [
   "tim@communityjameel.org",
-  "timour.spiridonov@gmail.com"
+  "timour.spiridonov@gmail.com",
+  "communityjameeltechnology@gmail.com",
+  "george@communityjameel.org",
+  "m.ibrahim@communityjameel.org",
+  "nathaniel@communityjameel.org",
+  "tim@communityjameel.org",
+  "timour.spiridonov@gmail.com",
 ]
 
 export const auth = betterAuth({
