@@ -245,11 +245,29 @@ export default function NewWorkflowPage() {
             {/* Step 1: Select Document */}
             {currentStep === 1 && (
               <div>
-                <Card className="mb-4">
+                {/* Selected Document Preview - shown at top */}
+                {selectedFile && (
+                  <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-8 w-8 text-primary" />
+                      <div className="flex-1">
+                        <p className="font-medium text-foreground">{selectedFile.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedFile.mimeType === 'application/pdf' ? 'PDF Document' : 'DOCX Document'}
+                        </p>
+                      </div>
+                      <Badge variant="default" className="shrink-0">
+                        Selected
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+
+                <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <HardDrive className="h-5 w-5 text-primary" />
-                      Select Document from Google Drive
+                      {selectedFile ? 'Change Document' : 'Select Document from Google Drive'}
                     </CardTitle>
                     <CardDescription>
                       Choose the document you want to prepare for signatures. The document will remain in Google Drive.
@@ -257,24 +275,12 @@ export default function NewWorkflowPage() {
                   </CardHeader>
                 </Card>
 
-                <FilePicker
-                  onSelect={setSelectedFile}
-                  selectedFileId={selectedFile?.id}
-                />
-
-                {selectedFile && (
-                  <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-8 w-8 text-primary" />
-                      <div>
-                        <p className="font-medium text-foreground">{selectedFile.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedFile.mimeType === 'application/pdf' ? 'PDF Document' : 'DOCX Document'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <div className="mt-4">
+                  <FilePicker
+                    onSelect={setSelectedFile}
+                    selectedFileId={selectedFile?.id}
+                  />
+                </div>
               </div>
             )}
 
@@ -670,12 +676,12 @@ export default function NewWorkflowPage() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Workflow...
+                    Creating...
                   </>
                 ) : (
                   <>
                     <Check className="mr-2 h-4 w-4" />
-                    Create & Place Signatures
+                    Create
                   </>
                 )}
               </Button>

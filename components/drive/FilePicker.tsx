@@ -202,7 +202,7 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
 
         {/* File list */}
         {!loading && !error && items.length > 0 && (
-          <div className="space-y-1 max-h-96 overflow-y-auto">
+          <div className="space-y-1 max-h-64 overflow-y-auto">
             {items.map((item) => {
               const isFolder = item.mimeType === 'application/vnd.google-apps.folder'
               const isSelected = item.id === selectedFileId

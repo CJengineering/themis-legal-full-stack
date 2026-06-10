@@ -306,12 +306,12 @@ export default function PlaceFieldsPage({ params }: { params: Promise<{ id: stri
             {isSaving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                Sending...
               </>
             ) : (
               <>
                 <Check className="mr-2 h-4 w-4" />
-                Save & Send
+                Send
               </>
             )}
           </Button>

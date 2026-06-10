@@ -5,17 +5,10 @@ import { use } from "react"
 import {
   CheckCircle2,
   Clock,
-  FileText,
   PenTool,
-  ChevronDown,
-  ChevronUp,
   Download,
-  Shield,
-  Scale,
-  User,
   HardDrive,
   AlertCircle,
-  Lock,
   Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -76,7 +69,6 @@ export default function SigningPage({
   const [signature, setSignature] = useState<string | null>(null)
   const [agreed, setAgreed] = useState(false)
   const [signed, setSigned] = useState(false)
-  const [showDocumentPreview, setShowDocumentPreview] = useState(true)
 
   // API state
   const [workflow, setWorkflow] = useState<Workflow | null>(null)
@@ -321,305 +313,215 @@ export default function SigningPage({
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-card">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <div className="flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <PenTool className="h-4 w-4 text-primary-foreground" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
+              <PenTool className="h-3.5 w-3.5 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold tracking-tight text-foreground">
+            <span className="text-base font-semibold tracking-tight text-foreground">
               Themis Legal
+            </span>
+            <span className="hidden sm:inline text-sm text-muted-foreground">•</span>
+            <span className="hidden sm:inline text-sm text-muted-foreground truncate max-w-xs">
+              {workflow.name}
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-full border border-border bg-muted/30 px-3 py-1.5">
-              <Avatar className="h-6 w-6">
+            <div className="flex items-center gap-2 rounded-full border border-border bg-muted/30 px-3 py-1">
+              <Avatar className="h-5 w-5">
                 <AvatarFallback className="text-xs bg-primary/20">
                   {currentSigner.name.split(" ").map((n: string) => n[0]).join("")}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm font-medium text-foreground">{currentSigner.name}</span>
+              <span className="text-sm font-medium text-foreground hidden sm:inline">{currentSigner.name}</span>
             </div>
-            <Badge variant="outline" className="gap-1.5 hidden sm:flex">
-              <Shield className="h-3 w-3" />
-              Authenticated
-            </Badge>
+            <Button variant="outline" size="sm" asChild>
+              <a href={`https://drive.google.com/file/d/${workflow.driveFileId}/view`} target="_blank" rel="noopener noreferrer">
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline ml-1.5">Download</span>
+              </a>
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        {/* Auth Notice */}
-        <div className="mb-6 rounded-lg border border-primary/30 bg-primary/5 p-4">
-          <div className="flex items-center gap-3">
-            <Lock className="h-5 w-5 text-primary" />
-            <div>
-              <p className="font-medium text-foreground">Authenticated Signing Session</p>
-              <p className="text-sm text-muted-foreground">
-                You are signing as <strong>{currentSigner.name}</strong> ({currentSigner.email}).
-                Only authenticated users can sign documents.
-              </p>
+      {/* Signing Progress Bar - Horizontal */}
+      <div className="sticky top-14 z-40 border-b border-border bg-card/95 backdrop-blur">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-foreground">
+                Signing Progress:
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {signedCount} of {totalSigners} signed
+              </span>
             </div>
+            <span className="text-sm font-medium text-foreground">
+              {Math.round(progressPercentage)}%
+            </span>
+          </div>
+          <Progress value={progressPercentage} className="h-1.5 mb-3" />
+
+          {/* Horizontal Signer List */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            {workflow.signers.map((signer, index) => (
+              <div
+                key={signer.id}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 whitespace-nowrap ${
+                  signer.email === currentSigner.email && signer.status !== "SIGNED"
+                    ? "border-warning/50 bg-warning/10"
+                    : signer.status === "SIGNED"
+                    ? "border-success/30 bg-success/5"
+                    : "border-border bg-muted/30"
+                }`}
+              >
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs font-medium shrink-0">
+                  {index + 1}
+                </div>
+                <Avatar className={`h-6 w-6 shrink-0 ${
+                  signer.status === "SIGNED"
+                    ? "ring-2 ring-success ring-offset-1"
+                    : signer.email === currentSigner.email
+                    ? "ring-2 ring-warning ring-offset-1"
+                    : ""
+                }`}>
+                  <AvatarFallback className={`text-xs ${
+                    signer.status === "SIGNED"
+                      ? "bg-success/20"
+                      : signer.email === currentSigner.email
+                      ? "bg-warning/20"
+                      : "bg-muted"
+                  }`}>
+                    {signer.name.split(" ").map(n => n[0]).join("")}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium text-foreground">
+                  {signer.name}
+                  {signer.email === currentSigner.email && (
+                    <span className="ml-1 text-xs text-muted-foreground">(You)</span>
+                  )}
+                </span>
+                {signer.status === "SIGNED" ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
+                ) : signer.email === currentSigner.email ? (
+                  <Clock className="h-3.5 w-3.5 text-warning shrink-0" />
+                ) : (
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                )}
+              </div>
+            ))}
           </div>
         </div>
+      </div>
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
-          {/* Document Preview */}
-          <div className="space-y-4">
-            <Card className="overflow-hidden">
-              <CardHeader className="border-b border-border bg-muted/30 pb-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="secondary" className="gap-1">
-                        <Scale className="h-3 w-3" />
-                        NDA
-                      </Badge>
-                      <Badge className="bg-warning/20 text-warning gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Your Turn to Sign
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-xl text-balance">
-                      {workflow.name}
-                    </CardTitle>
-                    <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                      <HardDrive className="h-4 w-4" />
-                      Google Drive
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" className="shrink-0" asChild>
-                    <a href={`https://drive.google.com/file/d/${workflow.driveFileId}/view`} target="_blank" rel="noopener noreferrer">
-                      <Download className="mr-2 h-4 w-4" />
-                      Download
-                    </a>
-                  </Button>
+      <main className="px-4 py-6">
+        {/* Document Preview - Full Width */}
+        <div className="mx-auto max-w-7xl space-y-4">
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <div className="bg-muted/20 p-4">
+                <div className="mx-auto bg-card shadow-lg rounded-sm overflow-hidden">
+                  <iframe
+                    src={`/api/drive/files/${workflow.driveFileId}/pdf#view=FitH&toolbar=0&navpanes=0`}
+                    className="w-full"
+                    style={{ height: 'calc(100vh - 280px)', minHeight: '600px' }}
+                    title={workflow.name}
+                  />
                 </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-between rounded-none border-b border-border px-6 py-3"
-                  onClick={() => setShowDocumentPreview(!showDocumentPreview)}
-                >
-                  <span className="text-sm font-medium">Document Content</span>
-                  {showDocumentPreview ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
-                {showDocumentPreview && (
-                  <div className="bg-muted/20 p-6">
-                    <div className="mx-auto max-w-[8.5in] bg-card shadow-lg rounded-sm overflow-hidden">
-                      <iframe
-                        src={`/api/drive/files/${workflow.driveFileId}/pdf`}
-                        className="w-full"
-                        style={{ height: '800px' }}
-                        title={workflow.name}
-                      />
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Signature Section */}
-            <Card>
-              <CardHeader className="pb-4">
+          {/* Signature Section */}
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
                   <PenTool className="h-4 w-4 text-primary" />
                   Your Signature Required
                 </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <p className="text-base font-semibold text-foreground">
-                        {currentSigner.name}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Signer {currentSigner.order + 1}
-                      </p>
-                    </div>
-                    <Badge className="bg-warning/20 text-warning">
-                      Step {currentSigner.order + 1} of {totalSigners}
-                    </Badge>
-                  </div>
-
-                  {signature ? (
-                    <div className="space-y-4">
-                      <div className="rounded-lg border border-border bg-card p-4">
-                        {signature.startsWith("typed:") ? (
-                          <p className="text-2xl font-serif italic text-foreground">
-                            {signature.split(":")[2]}
-                          </p>
-                        ) : (
-                          <img
-                            src={signature}
-                            alt="Your signature"
-                            className="max-h-20"
-                          />
-                        )}
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => setSignature(null)}
-                        className="w-full"
-                      >
-                        Change Signature
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={() => setShowSignatureDialog(true)}
-                      className="w-full"
-                      size="lg"
-                    >
-                      <PenTool className="mr-2 h-4 w-4" />
-                      Add Your Signature
-                    </Button>
-                  )}
-                </div>
-
-                {signature && (
+                <Badge className="bg-warning/20 text-warning">
+                  Step {currentSigner.order + 1} of {totalSigners}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 p-6">
+                {signature ? (
                   <div className="space-y-4">
-                    <div className="flex items-start space-x-3">
-                      <Checkbox
-                        id="agree"
-                        checked={agreed}
-                        onCheckedChange={(checked) => setAgreed(checked as boolean)}
-                      />
-                      <label
-                        htmlFor="agree"
-                        className="text-sm leading-relaxed text-muted-foreground"
-                      >
-                        I acknowledge that I am authorized to sign this document as{" "}
-                        <strong className="text-foreground">{currentSigner.name}</strong> and that my
-                        electronic signature has the same legal effect as a handwritten signature.
-                      </label>
+                    <div className="rounded-lg border border-border bg-card p-4">
+                      {signature.startsWith("typed:") ? (
+                        <p className="text-2xl font-serif italic text-foreground">
+                          {signature.split(":")[2]}
+                        </p>
+                      ) : (
+                        <img
+                          src={signature}
+                          alt="Your signature"
+                          className="max-h-20"
+                        />
+                      )}
                     </div>
                     <Button
-                      onClick={handleSign}
+                      variant="outline"
+                      onClick={() => setSignature(null)}
                       className="w-full"
-                      size="lg"
-                      disabled={!agreed || isSubmitting}
                     >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Submitting...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Complete Signature
-                        </>
-                      )}
+                      Change Signature
                     </Button>
                   </div>
+                ) : (
+                  <Button
+                    onClick={() => setShowSignatureDialog(true)}
+                    className="w-full"
+                    size="lg"
+                  >
+                    <PenTool className="mr-2 h-4 w-4" />
+                    Add Your Signature
+                  </Button>
                 )}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
 
-          {/* Sidebar */}
-          <div className="space-y-4">
-            {/* Progress */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Signing Progress
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-muted-foreground">
-                      {signedCount} of {totalSigners} signed
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {Math.round(progressPercentage)}%
-                    </span>
-                  </div>
-                  <Progress value={progressPercentage} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  {workflow.signers.map((signer, index) => (
-                    <div
-                      key={signer.id}
-                      className={`flex items-center gap-3 rounded-lg border p-3 ${
-                        signer.email === currentSigner.email && signer.status !== "SIGNED"
-                          ? "border-primary/50 bg-primary/5"
-                          : ""
-                      }`}
+              {signature && (
+                <div className="space-y-4">
+                  <div className="flex items-start space-x-3">
+                    <Checkbox
+                      id="agree"
+                      checked={agreed}
+                      onCheckedChange={(checked) => setAgreed(checked as boolean)}
+                    />
+                    <label
+                      htmlFor="agree"
+                      className="text-sm leading-relaxed text-muted-foreground"
                     >
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                        {index + 1}
-                      </div>
-                      <Avatar className={`h-8 w-8 ${
-                        signer.status === "SIGNED"
-                          ? "ring-2 ring-success ring-offset-1"
-                          : signer.email === currentSigner.email
-                          ? "ring-2 ring-warning ring-offset-1"
-                          : ""
-                      }`}>
-                        <AvatarFallback className={`text-xs ${
-                          signer.status === "SIGNED"
-                            ? "bg-success/20"
-                            : signer.email === currentSigner.email
-                            ? "bg-warning/20"
-                            : "bg-muted"
-                        }`}>
-                          {signer.name.split(" ").map(n => n[0]).join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {signer.name}
-                          {signer.email === currentSigner.email && (
-                            <span className="ml-1 text-xs text-muted-foreground">(You)</span>
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          Signer {signer.order + 1}
-                        </p>
-                      </div>
-                      {signer.status === "SIGNED" ? (
-                        <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
-                      ) : signer.email === currentSigner.email ? (
-                        <Clock className="h-4 w-4 text-warning shrink-0" />
-                      ) : (
-                        <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                      )}
-                    </div>
-                  ))}
+                      I acknowledge that I am authorized to sign this document as{" "}
+                      <strong className="text-foreground">{currentSigner.name}</strong> and that my
+                      electronic signature has the same legal effect as a handwritten signature.
+                    </label>
+                  </div>
+                  <Button
+                    onClick={handleSign}
+                    className="w-full"
+                    size="lg"
+                    disabled={!agreed || isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Complete Signature
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Workflow Info */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Workflow Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Created by:</span>
-                  <span className="font-medium text-foreground">{workflow.creator.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <HardDrive className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Location:</span>
-                  <span className="font-medium text-foreground truncate">Google Drive</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
 
