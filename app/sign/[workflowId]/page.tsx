@@ -281,7 +281,7 @@ export default function SigningPage({
               Document Signed Successfully
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Thank you for signing. {totalSigners - signedCount - 1 > 0 
+              Thank you for signing. {totalSigners - signedCount - 1 > 0
                 ? "The next signer has been notified."
                 : "All signatures have been collected. The document will be updated in Google Drive."}
             </p>
@@ -302,6 +302,18 @@ export default function SigningPage({
             <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
               <HardDrive className="h-3 w-3" />
               Document will be saved to Google Drive
+            </div>
+            <div className="mt-6 flex flex-col gap-2">
+              <Button asChild className="w-full">
+                <a href="/dashboard">
+                  Return to Dashboard
+                </a>
+              </Button>
+              <Button variant="outline" asChild className="w-full">
+                <a href="/signatures">
+                  View My Signatures
+                </a>
+              </Button>
             </div>
           </CardContent>
         </Card>
