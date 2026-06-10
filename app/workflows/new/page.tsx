@@ -291,118 +291,168 @@ export default function NewWorkflowPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* Search Team Members */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Search team members..."
-                      className="pl-9"
-                      value={signerSearch}
-                      onChange={(e) => setSignerSearch(e.target.value)}
-                      disabled={loadingTeamMembers}
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    {/* Left Column: Search & Selected Signers */}
+                    <div>
+                      {/* Search Team Members */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          placeholder="Search team members..."
+                          className="pl-9"
+                          value={signerSearch}
+                          onChange={(e) => setSignerSearch(e.target.value)}
+                          disabled={loadingTeamMembers}
+                        />
+                      </div>
 
-                  {/* Loading State */}
-                  {loadingTeamMembers && (
-                    <div className="mt-4 flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  )}
-
-                  {/* Search Results */}
-                  {!loadingTeamMembers && signerSearch && filteredTeamMembers.length > 0 && (
-                    <div className="mt-2 divide-y divide-border rounded-lg border">
-                      {filteredTeamMembers.slice(0, 5).map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-muted/50"
-                          onClick={() => addSigner(member)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className="text-xs">
-                                {member.name.split(" ").map((n) => n[0]).join("")}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="text-sm font-medium text-foreground">{member.name}</p>
-                              <p className="text-xs text-muted-foreground">{member.email}</p>
+                      {/* Search Results */}
+                      {!loadingTeamMembers && signerSearch && filteredTeamMembers.length > 0 && (
+                        <div className="mt-2 divide-y divide-border rounded-lg border">
+                          {filteredTeamMembers.slice(0, 5).map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-muted/50"
+                              onClick={() => addSigner(member)}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback className="text-xs">
+                                    {member.name.split(" ").map((n) => n[0]).join("")}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">{member.name}</p>
+                                  <p className="text-xs text-muted-foreground">{member.email}</p>
+                                </div>
+                              </div>
+                              <Plus className="h-4 w-4 text-muted-foreground" />
                             </div>
-                          </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      )}
 
-                  {/* Selected Signers */}
-                  <div className="mt-6">
-                    <Label className="text-sm font-medium">Signing Order</Label>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Signers will be notified in this order. Each signer can only sign when it&apos;s their turn.
-                    </p>
-
-                    {signers.length === 0 ? (
-                      <div className="mt-4 rounded-lg border-2 border-dashed border-muted p-8 text-center">
-                        <Users className="mx-auto h-8 w-8 text-muted-foreground" />
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          No signers added yet. Search and add team members above.
+                      {/* Selected Signers */}
+                      <div className="mt-6">
+                        <Label className="text-sm font-medium">Signing Order</Label>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Signers will be notified in this order. Each signer can only sign when it&apos;s their turn.
                         </p>
-                      </div>
-                    ) : (
-                      <div className="mt-4 space-y-2">
-                        {signers.map((signer, index) => (
-                          <div
-                            key={signer.email}
-                            className="flex items-center gap-3 rounded-lg border bg-card p-3"
-                          >
-                            <div className="cursor-grab text-muted-foreground">
-                              <GripVertical className="h-4 w-4" />
-                            </div>
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-                              {index + 1}
-                            </div>
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className="text-xs">
-                                {signer.name.split(" ").map((n) => n[0]).join("")}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-foreground">{signer.name}</p>
-                              <p className="text-xs text-muted-foreground">{signer.email}</p>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => moveSigner(index, "up")}
-                                disabled={index === 0}
-                              >
-                                <ArrowLeft className="h-3 w-3 rotate-90" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => moveSigner(index, "down")}
-                                disabled={index === signers.length - 1}
-                              >
-                                <ArrowRight className="h-3 w-3 rotate-90" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive hover:text-destructive"
-                                onClick={() => removeSigner(signer.email)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
+
+                        {signers.length === 0 ? (
+                          <div className="mt-4 rounded-lg border-2 border-dashed border-muted p-8 text-center">
+                            <Users className="mx-auto h-8 w-8 text-muted-foreground" />
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              No signers added yet. Search and add team members above.
+                            </p>
                           </div>
-                        ))}
+                        ) : (
+                          <div className="mt-4 space-y-2">
+                            {signers.map((signer, index) => (
+                              <div
+                                key={signer.email}
+                                className="flex items-center gap-3 rounded-lg border bg-card p-3"
+                              >
+                                <div className="cursor-grab text-muted-foreground">
+                                  <GripVertical className="h-4 w-4" />
+                                </div>
+                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+                                  {index + 1}
+                                </div>
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback className="text-xs">
+                                    {signer.name.split(" ").map((n) => n[0]).join("")}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-foreground">{signer.name}</p>
+                                  <p className="text-xs text-muted-foreground">{signer.email}</p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => moveSigner(index, "up")}
+                                    disabled={index === 0}
+                                  >
+                                    <ArrowLeft className="h-3 w-3 rotate-90" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => moveSigner(index, "down")}
+                                    disabled={index === signers.length - 1}
+                                  >
+                                    <ArrowRight className="h-3 w-3 rotate-90" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => removeSigner(signer.email)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+
+                    {/* Right Column: All Available Users */}
+                    <div>
+                      <Label className="text-sm font-medium">Available Team Members</Label>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Click to add a user to the signing workflow.
+                      </p>
+
+                      {/* Loading State */}
+                      {loadingTeamMembers ? (
+                        <div className="mt-4 flex items-center justify-center rounded-lg border py-16">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : (
+                        <div className="mt-4 max-h-[600px] overflow-y-auto rounded-lg border">
+                          {filteredTeamMembers.length === 0 ? (
+                            <div className="py-16 text-center">
+                              <Users className="mx-auto h-8 w-8 text-muted-foreground" />
+                              <p className="mt-2 text-sm text-muted-foreground">
+                                {signerSearch
+                                  ? "No matching team members found."
+                                  : "All available users have been added."}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="divide-y divide-border">
+                              {filteredTeamMembers.map((member) => (
+                                <div
+                                  key={member.id}
+                                  className="flex cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-muted/50"
+                                  onClick={() => addSigner(member)}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-8 w-8">
+                                      <AvatarFallback className="text-xs">
+                                        {member.name.split(" ").map((n) => n[0]).join("")}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="text-sm font-medium text-foreground">{member.name}</p>
+                                      <p className="text-xs text-muted-foreground">{member.email}</p>
+                                    </div>
+                                  </div>
+                                  <Plus className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
