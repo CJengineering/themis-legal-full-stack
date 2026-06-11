@@ -129,4 +129,30 @@ Claude reads this at the start of every session via CLAUDE.md.
 
 ---
 
+## [2026-06-11] — Google Drive scope must include full access for shared files
+
+**What happened:** Initial implementation used restrictive `drive.readonly` + `drive.file` scopes. This prevented users from seeing "Shared with me" files and Shared Drive documents. Additionally, `drive.file` only allows writing to app-created folders, not user-specified destinations for signed PDFs.
+
+**Rule added:**
+- Use full `https://www.googleapis.com/auth/drive` scope (industry standard for e-signature platforms)
+- All `drive.files.list()` calls must include:
+  - `corpora: 'user,allDrives'` — include My Drive and Shared Drives
+  - `includeItemsFromAllDrives: true` — include files from shared drives
+  - `supportsAllDrives: true` — enable shared drive support
+- These parameters are required on BOTH file listing and folder browsing queries
+- Without these parameters, shared files and folders will not appear even with full scope
+
+**Where to find the fix:**
+- `lib/auth.ts` — Google OAuth scope changed to full `drive` access
+- `.claude/skills/google-drive.md` — updated all query examples with shared drive parameters
+- `docs/microsoft-auth-integration.md` — documents Drive access requirements
+
+**Why this is safe:**
+- DocuSign, HelloSign, PandaDoc all use the same full Drive scope
+- Users understand why document signing needs Drive access
+- We never modify or delete original files (read-only for source, write only for signed output)
+- Audit logs track all file access
+
+---
+
 <!-- future entries will be added here as the project progresses -->

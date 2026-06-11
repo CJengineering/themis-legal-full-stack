@@ -5,6 +5,12 @@ Themis does NOT store document content. No blobs in DB, no files on disk,
 no caching file content in memory beyond a single streaming request.
 Google Drive is the single source of truth for all documents.
 
+## OAuth Scope
+As of 2026-06-11, we use full Drive access:
+- `https://www.googleapis.com/auth/drive` — Full access to read all files (including shared) and write signed PDFs to user-specified folders
+- This is the industry standard for e-signature platforms (DocuSign, HelloSign, etc.)
+- All Drive API calls must include `corpora`, `includeItemsFromAllDrives`, and `supportsAllDrives` parameters to access shared files and Shared Drives
+
 ## Auth setup
 Use the user's OAuth access token from NextAuth Account table:
 ```typescript
@@ -34,6 +40,9 @@ const res = await drive.files.list({
   fields: 'files(id, name, mimeType, modifiedTime, parents, size)',
   pageSize: 50,
   orderBy: 'modifiedTime desc',
+  corpora: 'user,allDrives',           // Include both My Drive and Shared Drives
+  includeItemsFromAllDrives: true,     // Include files from shared drives
+  supportsAllDrives: true,              // Enable shared drive support
 })
 return res.data.files
 ```
@@ -61,6 +70,9 @@ await drive.files.create({
 const res = await drive.files.list({
   q: `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
   fields: 'files(id, name)',
+  corpora: 'user,allDrives',           // Include both My Drive and Shared Drives
+  includeItemsFromAllDrives: true,     // Include folders from shared drives
+  supportsAllDrives: true,              // Enable shared drive support
 })
 ```
 

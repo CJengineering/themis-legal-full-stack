@@ -36,8 +36,7 @@ export const auth = betterAuth({
         "openid",
         "email",
         "profile",
-        "https://www.googleapis.com/auth/drive.readonly",
-        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive", // Full Drive access for reading shared files and writing signed PDFs
       ],
     },
     // Microsoft will be added later
