@@ -36,10 +36,18 @@ export async function GET(request: Request) {
     let sharedDrives: any[] = []
 
     if (driveId) {
-      // Browsing a specific Shared Drive
-      const folderQuery = folderId ? `'${folderId}' in parents` : `'${driveId}' in parents`
+      // Browsing a specific Shared Drive (with or without subfolder)
       const typeQuery = `(mimeType='application/vnd.google-apps.folder' or mimeType='application/pdf' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')`
-      const q = `${folderQuery} and ${typeQuery} and trashed=false`
+
+      let q: string
+      if (folderId) {
+        // Browsing a specific folder within the Shared Drive
+        q = `'${folderId}' in parents and ${typeQuery} and trashed=false`
+      } else {
+        // Browsing Shared Drive root - get all files without parent filter
+        // The driveId parameter will scope the query to that specific drive
+        q = `${typeQuery} and trashed=false`
+      }
 
       const response = await drive.files.list({
         q,
