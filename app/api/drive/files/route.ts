@@ -4,9 +4,13 @@ import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 /**
- * GET /api/drive/files?folderId=xyz
+ * GET /api/drive/files?folderId=xyz&driveId=abc
  * Lists files and folders in the specified folder (or root if no folderId).
  * Returns only folders, PDFs, and DOCX files.
+ *
+ * Query params:
+ * - folderId: specific folder to browse (optional)
+ * - driveId: specific Shared Drive to browse (optional)
  */
 // Prevent static optimization
 export const dynamic = 'force-dynamic'
@@ -21,6 +25,7 @@ export async function GET(request: Request) {
   // 2. Get query params
   const { searchParams } = new URL(request.url)
   const folderId = searchParams.get('folderId')
+  const driveId = searchParams.get('driveId')
 
   try {
     // 3. Initialize Drive client
@@ -28,9 +33,28 @@ export async function GET(request: Request) {
 
     // 4. Build query and fetch files
     let items: any[] = []
+    let sharedDrives: any[] = []
 
-    if (folderId) {
-      // Browsing a specific folder - include shared drives
+    if (driveId) {
+      // Browsing a specific Shared Drive
+      const folderQuery = folderId ? `'${folderId}' in parents` : `'${driveId}' in parents`
+      const typeQuery = `(mimeType='application/vnd.google-apps.folder' or mimeType='application/pdf' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')`
+      const q = `${folderQuery} and ${typeQuery} and trashed=false`
+
+      const response = await drive.files.list({
+        q,
+        fields: 'files(id, name, mimeType, modifiedTime, size, parents)',
+        orderBy: 'folder,name',
+        pageSize: 100,
+        corpora: 'drive',
+        driveId: driveId,
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true,
+      })
+
+      items = response.data.files ?? []
+    } else if (folderId) {
+      // Browsing a specific folder in My Drive or shared folders
       const q = `'${folderId}' in parents and (mimeType='application/vnd.google-apps.folder' or mimeType='application/pdf' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document') and trashed=false`
 
       const response = await drive.files.list({
@@ -45,7 +69,7 @@ export async function GET(request: Request) {
 
       items = response.data.files ?? []
     } else {
-      // Root level - fetch both My Drive root AND shared files
+      // Root level - fetch My Drive, Shared with me, AND Shared Drives
       const typeQuery = `(mimeType='application/vnd.google-apps.folder' or mimeType='application/pdf' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')`
 
       // Fetch My Drive root
@@ -66,8 +90,26 @@ export async function GET(request: Request) {
         corpora: 'user',
       })
 
-      // Combine results (shared files first to make them visible)
+      // Fetch Shared Drives (Team Drives)
+      const drivesResponse = await drive.drives.list({
+        pageSize: 100,
+        fields: 'drives(id, name)',
+      })
+
+      // Format Shared Drives as folder-like items
+      sharedDrives = (drivesResponse.data.drives ?? []).map((d: any) => ({
+        id: d.id,
+        name: `📁 ${d.name}`, // Add emoji to distinguish Shared Drives
+        mimeType: 'application/vnd.google-apps.folder',
+        isSharedDrive: true, // Special flag to identify Shared Drives
+        modifiedTime: null,
+        size: null,
+        parents: null,
+      }))
+
+      // Combine results (Shared Drives first, then shared files, then My Drive)
       items = [
+        ...sharedDrives,
         ...(sharedResponse.data.files ?? []),
         ...(myDriveResponse.data.files ?? []),
       ]
@@ -84,7 +126,8 @@ export async function GET(request: Request) {
     // 7. Return sorted list (folders first)
     return NextResponse.json({
       items: [...folders, ...files],
-      currentFolderId: folderId ?? 'root',
+      currentFolderId: folderId ?? (driveId ? driveId : 'root'),
+      currentDriveId: driveId ?? null,
     })
 
   } catch (error) {

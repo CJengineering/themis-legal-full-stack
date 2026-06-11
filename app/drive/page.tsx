@@ -26,6 +26,7 @@ interface DriveItem {
   mimeType?: string
   modifiedAt: string
   size?: string
+  isSharedDrive?: boolean
 }
 
 interface BreadcrumbItem {
@@ -56,10 +57,12 @@ function formatDate(isoDate: string): string {
 
 function DriveItemRow({
   item,
-  onFolderClick
+  onFolderClick,
+  onSharedDriveClick
 }: {
   item: DriveItem
   onFolderClick?: (folderId: string, folderName: string) => void
+  onSharedDriveClick?: (driveId: string, driveName: string) => void
 }) {
   const isDocument = item.type === "file" && (
     item.mimeType?.includes("pdf") ||
@@ -68,7 +71,9 @@ function DriveItemRow({
   )
 
   const handleClick = () => {
-    if (item.type === "folder" && onFolderClick) {
+    if (item.isSharedDrive && onSharedDriveClick) {
+      onSharedDriveClick(item.id, item.name)
+    } else if (item.type === "folder" && onFolderClick) {
       onFolderClick(item.id, item.name)
     }
   }
@@ -118,6 +123,7 @@ export default function GoogleDrivePage() {
   const [items, setItems] = useState<DriveItem[]>([])
   const [loading, setLoading] = useState(true)
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
+  const [currentDriveId, setCurrentDriveId] = useState<string | null>(null)
   const [breadcrumbPath, setBreadcrumbPath] = useState<BreadcrumbItem[]>([
     { id: null, name: "My Drive" }
   ])
@@ -126,15 +132,18 @@ export default function GoogleDrivePage() {
   const [error, setError] = useState<string | null>(null)
 
   // Fetch folder contents
-  const fetchFolder = async (folderId?: string | null) => {
+  const fetchFolder = async (folderId?: string | null, driveId?: string | null) => {
     setLoading(true)
     setError(null)
     setIsSearchMode(false)
 
     try {
-      const url = folderId
-        ? `/api/drive/files?folderId=${folderId}`
-        : '/api/drive/files'
+      // Build URL with optional folderId and driveId
+      let url = '/api/drive/files'
+      const params = new URLSearchParams()
+      if (folderId) params.append('folderId', folderId)
+      if (driveId) params.append('driveId', driveId)
+      if (params.toString()) url += `?${params.toString()}`
 
       const response = await fetch(url)
 
@@ -150,19 +159,22 @@ export default function GoogleDrivePage() {
         id: string
         name: string
         mimeType: string
-        modifiedTime: string
+        modifiedTime: string | null
         size?: string
+        isSharedDrive?: boolean
       }) => ({
         id: item.id,
         name: item.name,
         type: item.mimeType === 'application/vnd.google-apps.folder' ? 'folder' : 'file',
         mimeType: item.mimeType,
-        modifiedAt: formatDate(item.modifiedTime),
-        size: formatFileSize(item.size)
+        modifiedAt: item.modifiedTime ? formatDate(item.modifiedTime) : 'N/A',
+        size: formatFileSize(item.size),
+        isSharedDrive: item.isSharedDrive
       }))
 
       setItems(transformedItems)
       setCurrentFolderId(folderId || null)
+      setCurrentDriveId(driveId || null)
     } catch (err) {
       console.error('Fetch folder error:', err)
       setError(err instanceof Error ? err.message : 'Failed to load files')
@@ -228,10 +240,17 @@ export default function GoogleDrivePage() {
     return () => clearTimeout(timeoutId)
   }, [searchQuery]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Navigate into a Shared Drive
+  const handleSharedDriveClick = (driveId: string, driveName: string) => {
+    setBreadcrumbPath([{ id: null, name: "My Drive" }, { id: driveId, name: driveName }])
+    setCurrentDriveId(driveId)
+    fetchFolder(null, driveId)
+  }
+
   // Navigate into a folder
   const handleFolderClick = (folderId: string, folderName: string) => {
     setBreadcrumbPath([...breadcrumbPath, { id: folderId, name: folderName }])
-    fetchFolder(folderId)
+    fetchFolder(folderId, currentDriveId)
   }
 
   // Navigate via breadcrumb
@@ -239,7 +258,17 @@ export default function GoogleDrivePage() {
     const newPath = breadcrumbPath.slice(0, index + 1)
     const targetFolder = newPath[newPath.length - 1]
     setBreadcrumbPath(newPath)
-    fetchFolder(targetFolder.id)
+
+    // If going back to root, clear driveId
+    if (index === 0) {
+      setCurrentDriveId(null)
+      fetchFolder(null, null)
+    } else if (index === 1 && currentDriveId) {
+      // Going back to Shared Drive root
+      fetchFolder(null, currentDriveId)
+    } else {
+      fetchFolder(targetFolder.id, currentDriveId)
+    }
   }
 
   // Load root folder on mount
@@ -387,6 +416,7 @@ export default function GoogleDrivePage() {
                     key={item.id}
                     item={item}
                     onFolderClick={handleFolderClick}
+                    onSharedDriveClick={handleSharedDriveClick}
                   />
                 ))}
               </>
