@@ -71,9 +71,15 @@ function DriveItemRow({
   )
 
   const handleClick = () => {
+    console.log('=== Item clicked ===')
+    console.log('item:', item)
+    console.log('isSharedDrive:', item.isSharedDrive)
+
     if (item.isSharedDrive && onSharedDriveClick) {
+      console.log('Calling onSharedDriveClick')
       onSharedDriveClick(item.id, item.name)
     } else if (item.type === "folder" && onFolderClick) {
+      console.log('Calling onFolderClick')
       onFolderClick(item.id, item.name)
     }
   }
@@ -137,6 +143,12 @@ export default function GoogleDrivePage() {
     setError(null)
     setIsSearchMode(false)
 
+    // DEBUG
+    console.log('=== fetchFolder called ===')
+    console.log('folderId:', folderId)
+    console.log('driveId:', driveId)
+    console.log('currentDriveId state:', currentDriveId)
+
     try {
       // Build URL with optional folderId and driveId
       let url = '/api/drive/files'
@@ -144,6 +156,8 @@ export default function GoogleDrivePage() {
       if (folderId) params.append('folderId', folderId)
       if (driveId) params.append('driveId', driveId)
       if (params.toString()) url += `?${params.toString()}`
+
+      console.log('Fetching URL:', url)
 
       const response = await fetch(url)
 
@@ -242,6 +256,9 @@ export default function GoogleDrivePage() {
 
   // Navigate into a Shared Drive
   const handleSharedDriveClick = (driveId: string, driveName: string) => {
+    console.log('=== Shared Drive clicked ===')
+    console.log('driveId:', driveId)
+    console.log('driveName:', driveName)
     setBreadcrumbPath([{ id: null, name: "My Drive" }, { id: driveId, name: driveName }])
     setCurrentDriveId(driveId)
     fetchFolder(null, driveId)
@@ -249,6 +266,10 @@ export default function GoogleDrivePage() {
 
   // Navigate into a folder
   const handleFolderClick = (folderId: string, folderName: string) => {
+    console.log('=== Folder clicked ===')
+    console.log('folderId:', folderId)
+    console.log('folderName:', folderName)
+    console.log('currentDriveId:', currentDriveId)
     setBreadcrumbPath([...breadcrumbPath, { id: folderId, name: folderName }])
     fetchFolder(folderId, currentDriveId)
   }
