@@ -36,12 +36,15 @@ export async function GET(request: Request) {
     const escapedQuery = query.replace(/'/g, "\\'")
     const q = `name contains '${escapedQuery}' and (mimeType='application/pdf' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document') and trashed=false`
 
-    // 5. Fetch matching files
+    // 5. Fetch matching files (including shared files and Shared Drives)
     const response = await drive.files.list({
       q,
       fields: 'files(id, name, mimeType, modifiedTime, size, parents)',
       orderBy: 'modifiedTime desc',
       pageSize: 50,
+      corpora: 'user,allDrives',           // Include My Drive and Shared Drives
+      includeItemsFromAllDrives: true,     // Include files from shared drives
+      supportsAllDrives: true,              // Enable shared drive support
     })
 
     return NextResponse.json({

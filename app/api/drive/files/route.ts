@@ -39,12 +39,15 @@ export async function GET(request: Request) {
 
     const q = `${folderQuery} and ${typeQuery} and trashed=false`
 
-    // 5. Fetch files
+    // 5. Fetch files (including shared files and Shared Drives)
     const response = await drive.files.list({
       q,
       fields: 'files(id, name, mimeType, modifiedTime, size, parents)',
       orderBy: 'folder,name',
       pageSize: 100,
+      corpora: 'user,allDrives',           // Include My Drive and Shared Drives
+      includeItemsFromAllDrives: true,     // Include files from shared drives
+      supportsAllDrives: true,              // Enable shared drive support
     })
 
     // 6. Separate folders and files
