@@ -109,6 +109,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // 2. Check user role - only ADMINs can create workflows
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  })
+
+  if (user?.role !== 'ADMIN') {
+    return NextResponse.json(
+      { error: 'Only administrators can create workflows' },
+      { status: 403 }
+    )
+  }
+
   try {
     // 2. Parse and validate request body
     const body = await request.json()

@@ -26,7 +26,9 @@ export const auth = betterAuth({
     "https://themis-legal-full-stack.vercel.app",
   ],
   emailAndPassword: {
-    enabled: false, // OAuth only for now
+    enabled: true,
+    requireEmailVerification: false, // Admin creates accounts, so no email verification needed
+    autoSignIn: false, // Users must explicitly sign in with credentials
   },
   socialProviders: process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? {
     google: {
@@ -65,9 +67,12 @@ export const auth = betterAuth({
     },
   },
   callbacks: {
-    async signIn({ user, request }: { user: { email: string; id: string; name: string }; request?: Request }) {
-      // Check allowlist - block unauthorized emails
-      if (!AUTHORIZED_EMAILS.includes(user.email)) {
+    async signIn({ user, request, account }: { user: { email: string; id: string; name: string }; request?: Request; account?: any }) {
+      // For OAuth (Google/Microsoft): Check allowlist - block unauthorized emails
+      // For email/password: User was created by admin, so skip allowlist check
+      const isOAuth = account?.providerId === 'google' || account?.providerId === 'microsoft'
+
+      if (isOAuth && !AUTHORIZED_EMAILS.includes(user.email)) {
         throw new Error("Access not authorized")
       }
 
@@ -83,7 +88,7 @@ export const auth = betterAuth({
         userAgent,
         metadata: {
           email: user.email,
-          provider: 'google', // Currently only Google OAuth is enabled
+          provider: account?.providerId || 'email',
         },
       })
 
