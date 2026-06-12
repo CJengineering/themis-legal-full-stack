@@ -22,9 +22,10 @@ interface DriveFile {
   id: string
   name: string
   mimeType: string
-  modifiedTime: string
+  modifiedTime: string | null
   size?: string
   parents?: string[]
+  isSharedDrive?: boolean
 }
 
 interface Signer {

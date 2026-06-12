@@ -12,9 +12,10 @@ interface DriveFile {
   id: string
   name: string
   mimeType: string
-  modifiedTime: string
+  modifiedTime: string | null
   size?: string
   parents?: string[]
+  isSharedDrive?: boolean
 }
 
 interface FilePickerProps {
@@ -27,6 +28,7 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentFolderId, setCurrentFolderId] = useState<string>('root')
+  const [currentDriveId, setCurrentDriveId] = useState<string | null>(null)
   const [folderPath, setFolderPath] = useState<{ id: string; name: string }[]>([
     { id: 'root', name: 'My Drive' },
   ])
@@ -34,15 +36,18 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
   const [isSearching, setIsSearching] = useState(false)
 
   // Fetch folder contents
-  const fetchFolder = async (folderId: string) => {
+  const fetchFolder = async (folderId: string, driveId: string | null = null) => {
     setLoading(true)
     setError(null)
     setIsSearching(false)
 
     try {
-      const url = folderId === 'root'
-        ? '/api/drive/files'
-        : `/api/drive/files?folderId=${folderId}`
+      // Build URL with optional folderId and driveId
+      let url = '/api/drive/files'
+      const params = new URLSearchParams()
+      if (folderId !== 'root') params.append('folderId', folderId)
+      if (driveId) params.append('driveId', driveId)
+      if (params.toString()) url += `?${params.toString()}`
 
       const response = await fetch(url)
 
@@ -51,7 +56,7 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
       }
 
       const data = await response.json()
-      setItems(data.items)
+      setItems(data.items || [])
       setCurrentFolderId(folderId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -89,18 +94,40 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
     }
   }
 
+  // Navigate into Shared Drive
+  const handleSharedDriveClick = (folder: DriveFile) => {
+    setFolderPath([{ id: 'root', name: 'My Drive' }, { id: folder.id, name: folder.name }])
+    setCurrentDriveId(folder.id)
+    fetchFolder(folder.id, folder.id)
+    setSearchQuery('')
+  }
+
   // Navigate into folder
   const handleFolderClick = (folder: DriveFile) => {
-    setFolderPath([...folderPath, { id: folder.id, name: folder.name }])
-    fetchFolder(folder.id)
-    setSearchQuery('')
+    if (folder.isSharedDrive) {
+      handleSharedDriveClick(folder)
+    } else {
+      setFolderPath([...folderPath, { id: folder.id, name: folder.name }])
+      fetchFolder(folder.id, currentDriveId)
+      setSearchQuery('')
+    }
   }
 
   // Navigate to breadcrumb folder
   const handleBreadcrumbClick = (index: number) => {
     const newPath = folderPath.slice(0, index + 1)
     setFolderPath(newPath)
-    fetchFolder(newPath[newPath.length - 1].id)
+
+    // If going back to root, clear driveId
+    if (index === 0) {
+      setCurrentDriveId(null)
+      fetchFolder('root', null)
+    } else if (index === 1 && currentDriveId) {
+      // Going back to Shared Drive root
+      fetchFolder(currentDriveId, currentDriveId)
+    } else {
+      fetchFolder(newPath[newPath.length - 1].id, currentDriveId)
+    }
     setSearchQuery('')
   }
 
@@ -121,7 +148,7 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
       if (searchQuery) {
         searchFiles(searchQuery)
       } else if (isSearching) {
-        fetchFolder(currentFolderId)
+        fetchFolder(currentFolderId, currentDriveId)
       }
     }, 300)
 
@@ -274,7 +301,8 @@ function formatFileSize(bytes: string | undefined): string {
 }
 
 // Helper: format date
-function formatDate(dateString: string): string {
+function formatDate(dateString: string | null): string {
+  if (!dateString) return 'N/A'
   const date = new Date(dateString)
   const now = new Date()
   const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
