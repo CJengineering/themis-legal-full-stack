@@ -33,6 +33,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AppSidebar } from "@/components/app-sidebar"
 import { useToast } from "@/components/ui/use-toast"
 import { useSession } from "@/lib/auth-client"
+import { InviteSignerCard } from "@/components/invite-signer-card"
+import { ChangePasswordCard } from "@/components/change-password-card"
 
 type UserProfile = {
   id: string
@@ -43,6 +45,7 @@ type UserProfile = {
   title: string | null
   locale: string
   timezone: string
+  role?: string
 }
 
 type DriveSettings = {
@@ -712,6 +715,10 @@ export default function SettingsPage() {
                   </p>
                 </CardContent>
               </Card>
+
+              <ChangePasswordCard />
+
+              <InviteSignerCard userRole={profile?.role} />
             </TabsContent>
 
             {/* Preferences Tab */}
