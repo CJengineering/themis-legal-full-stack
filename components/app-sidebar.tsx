@@ -21,18 +21,19 @@ type NavigationItem = {
   name: string
   href: string
   icon: typeof LayoutDashboard
+  adminOnly?: boolean
 }
 
 const navigation: NavigationItem[] = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Workflows", href: "/workflows", icon: GitBranch },
+  { name: "Dashboard", href: "/", icon: LayoutDashboard, adminOnly: true },
+  { name: "Workflows", href: "/workflows", icon: GitBranch, adminOnly: true },
   { name: "My Signatures", href: "/signatures", icon: PenTool },
-  { name: "Google Drive", href: "/drive", icon: HardDrive },
+  { name: "Google Drive", href: "/drive", icon: HardDrive, adminOnly: true },
 ]
 
-const bottomNavigation = [
-  { name: "Team", href: "/team", icon: Users },
-  { name: "Settings", href: "/settings", icon: Settings },
+const bottomNavigation: NavigationItem[] = [
+  { name: "Team", href: "/team", icon: Users, adminOnly: true },
+  { name: "Settings", href: "/settings", icon: Settings, adminOnly: true },
 ]
 
 export function AppSidebar() {
@@ -40,10 +41,32 @@ export function AppSidebar() {
   const { data: session, isPending } = useSession()
   const [driveConnected, setDriveConnected] = useState<boolean | null>(null)
   const [pendingCount, setPendingCount] = useState(0)
+  const [userRole, setUserRole] = useState<string | null>(null)
+
+  // Fetch user role
+  useEffect(() => {
+    async function fetchUserRole() {
+      if (!session?.user) return
+
+      try {
+        const res = await fetch('/api/user/profile')
+        if (res.ok) {
+          const data = await res.json()
+          setUserRole(data.role)
+        }
+      } catch (error) {
+        console.error('Failed to fetch user role:', error)
+      }
+    }
+
+    fetchUserRole()
+  }, [session?.user])
 
   useEffect(() => {
     async function checkDriveConnection() {
       if (!session?.user) return
+      // Skip Drive check for SIGNER users
+      if (userRole === 'SIGNER') return
 
       try {
         const res = await fetch('/api/drive/connect')
@@ -58,7 +81,7 @@ export function AppSidebar() {
     }
 
     checkDriveConnection()
-  }, [session?.user])
+  }, [session?.user, userRole])
 
   // Poll for pending signatures count every 5 minutes
   useEffect(() => {
@@ -114,51 +137,55 @@ export function AppSidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.name}
-                {item.name === "My Signatures" && pendingCount > 0 && (
-                  <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
-                    {pendingCount > 9 ? '9+' : pendingCount}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
+          {navigation
+            .filter((item) => !item.adminOnly || userRole === 'ADMIN')
+            .map((item) => {
+              const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.name}
+                  {item.name === "My Signatures" && pendingCount > 0 && (
+                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
+                      {pendingCount > 9 ? '9+' : pendingCount}
+                    </span>
+                  )}
+                </Link>
+              )
+            })}
         </nav>
 
         {/* Bottom Navigation */}
         <div className="border-t border-sidebar-border px-3 py-4">
-          {bottomNavigation.map((item) => {
-            const isActive = pathname === item.href
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.name}
-              </Link>
-            )
-          })}
+          {bottomNavigation
+            .filter((item) => !item.adminOnly || userRole === 'ADMIN')
+            .map((item) => {
+              const isActive = pathname === item.href
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.name}
+                </Link>
+              )
+            })}
 
           {/* User Profile */}
           <div className="mt-4 rounded-lg border border-sidebar-border bg-sidebar-accent/50 p-3">
@@ -193,20 +220,23 @@ export function AppSidebar() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-3 flex items-center gap-2">
-                  {driveConnected === null ? (
-                    <div className="h-6 w-36 animate-pulse rounded bg-muted" />
-                  ) : driveConnected ? (
-                    <Badge variant="outline" className="border-green-500/50 bg-green-500/10 text-xs text-green-700 dark:text-green-400">
-                      <HardDrive className="mr-1 h-3 w-3" />
-                      Google Drive Connected
-                    </Badge>
-                  ) : (
-                    <Link href="/settings" className="text-xs text-primary hover:underline">
-                      Connect Drive →
-                    </Link>
-                  )}
-                </div>
+                {/* Only show Drive status for ADMINs */}
+                {userRole === 'ADMIN' && (
+                  <div className="mt-3 flex items-center gap-2">
+                    {driveConnected === null ? (
+                      <div className="h-6 w-36 animate-pulse rounded bg-muted" />
+                    ) : driveConnected ? (
+                      <Badge variant="outline" className="border-green-500/50 bg-green-500/10 text-xs text-green-700 dark:text-green-400">
+                        <HardDrive className="mr-1 h-3 w-3" />
+                        Google Drive Connected
+                      </Badge>
+                    ) : (
+                      <Link href="/settings" className="text-xs text-primary hover:underline">
+                        Connect Drive →
+                      </Link>
+                    )}
+                  </div>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"

@@ -7,7 +7,7 @@ import { Suspense, useState } from "react"
 function LoginSignerForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const from = searchParams.get("from") || "/my-signatures"
+  const from = searchParams.get("from") || "/signatures"
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
