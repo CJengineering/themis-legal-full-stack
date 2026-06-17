@@ -137,23 +137,19 @@ function createEmailTemplate({
     ${preheader}
   </span>
   <div class="container">
-    <div class="header">
-      <h1>Themis Legal</h1>
-    </div>
     <div class="content">
       ${body}
       ${
         ctaText && ctaUrl
           ? `
       <div style="text-align: center;">
-        <a href="${ctaUrl}" class="cta-button">${ctaText}</a>
+        <a href="${ctaUrl}" class="cta-button" style="color: #ffffff !important;">${ctaText}
       </div>
       `
           : ''
       }
     </div>
     <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} Themis Legal. All rights reserved.</p>
       <p class="legal">This is an automated message from Themis Legal</p>
       <p class="legal">Please do not reply to this email</p>
     </div>
@@ -449,6 +445,61 @@ export async function sendSignerCredentials({
     return { success: true }
   } catch (error) {
     console.error('Failed to send signer credentials:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+interface SendAdminNewUserNotificationParams {
+  to: string
+  adminName: string
+  newUserName: string
+  newUserEmail: string
+  password: string
+}
+
+export async function sendAdminNewUserNotification({
+  to,
+  adminName,
+  newUserName,
+  newUserEmail,
+  password,
+}: SendAdminNewUserNotificationParams): Promise<{ success: boolean; error?: string }> {
+  try {
+    const body = `
+      <p>Hi ${adminName},</p>
+      <p>You have successfully created a new user account on Themis Legal:</p>
+      <div style="background-color: #f3f4f6; padding: 16px; border-radius: 6px; margin: 16px 0;">
+        <p style="margin: 0 0 8px 0;"><strong>Name:</strong> ${newUserName}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Email:</strong> ${newUserEmail}</p>
+        <p style="margin: 0;"><strong>Temporary Password:</strong> <code style="background-color: #e5e7eb; padding: 2px 6px; border-radius: 3px; font-family: monospace;">${password}</code></p>
+      </div>
+      <p>Their credentials have been sent directly to their email address. They can log in and change their password at any time.</p>
+    `
+
+    const html = createEmailTemplate({
+      title: 'New User Created',
+      preheader: `New account created for ${newUserName}`,
+      body,
+    })
+
+    const result = await getResend().emails.send({
+      from: FROM_EMAIL,
+      to: DEV_EMAIL_OVERRIDE ?? to,
+      subject: `New User Created: ${newUserName}`,
+      html,
+    })
+
+    if (result.error) {
+      console.error('Resend error:', result.error)
+      return { success: false, error: result.error.message }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to send admin new user notification:', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

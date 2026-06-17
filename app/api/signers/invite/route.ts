@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { sendSignerCredentials, sendAdminNewUserNotification } from '@/lib/email'
 import { headers } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
@@ -84,15 +85,29 @@ export async function POST(req: NextRequest) {
       data: { role: 'SIGNER' },
     })
 
-    // Return credentials to admin (they will send to signer via email/other means)
+    const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL}/login`
+
+    // 1. Send credentials to the new user
+    await sendSignerCredentials({
+      to: email.toLowerCase(),
+      signerName: name,
+      email: email.toLowerCase(),
+      password,
+      loginUrl,
+    })
+
+    // 2. Send confirmation copy to the admin who created the account
+    await sendAdminNewUserNotification({
+      to: session.user.email,
+      adminName: session.user.name ?? session.user.email,
+      newUserName: name,
+      newUserEmail: email.toLowerCase(),
+      password,
+    })
+
     return NextResponse.json({
       success: true,
-      credentials: {
-        email: email.toLowerCase(),
-        password,
-        name,
-      },
-      message: 'Signer account created successfully. Share these credentials with the signer.',
+      message: 'Signer account created. Credentials emailed to the user and a copy sent to you.',
     })
   } catch (error) {
     console.error('Error inviting signer:', error)
