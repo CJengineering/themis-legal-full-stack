@@ -150,7 +150,6 @@ function createEmailTemplate({
       }
     </div>
     <div class="footer">
-      <p class="legal">This is an automated message from Themis Legal</p>
       <p class="legal">Please do not reply to this email</p>
     </div>
   </div>
