@@ -42,8 +42,25 @@ export async function GET(
       return NextResponse.json({ error: 'File not found' }, { status: 404 })
     }
 
-    // 3. Initialize Drive client with creator's credentials
-    const drive = await getDriveClient(workflow.creatorId)
+    // 3. Initialize Drive client with creator's credentials.
+    //    Signer-facing: if the creator's token can't be refreshed, only the
+    //    owner can fix it — return a clear, distinguishable error.
+    let drive
+    try {
+      drive = await getDriveClient(workflow.creatorId)
+    } catch (err) {
+      if (err instanceof Error && err.message === 'DRIVE_REAUTH_REQUIRED') {
+        return NextResponse.json(
+          {
+            error:
+              'The document owner needs to reconnect Google Drive before this document can be verified. Please contact them.',
+            code: 'OWNER_REAUTH_REQUIRED',
+          },
+          { status: 502 }
+        )
+      }
+      throw err
+    }
 
     // 4. Fetch file metadata first to get the file name
     const metadata = await drive.files.get({

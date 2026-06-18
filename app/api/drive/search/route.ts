@@ -26,8 +26,20 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 3. Initialize Drive client
-    const drive = await getDriveClient(session.user.id)
+    // 3. Initialize Drive client. If the token can't be refreshed, signal the
+    //    client to show the "Reconnect Google Drive" flow (handled as 401).
+    let drive
+    try {
+      drive = await getDriveClient(session.user.id)
+    } catch (err) {
+      if (err instanceof Error && err.message === 'DRIVE_REAUTH_REQUIRED') {
+        return NextResponse.json(
+          { error: 'Drive access expired. Please reconnect.' },
+          { status: 401 }
+        )
+      }
+      throw err
+    }
 
     // 4. Build search query
     // - Search in file name

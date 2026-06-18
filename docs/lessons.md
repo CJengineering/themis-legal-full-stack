@@ -155,4 +155,25 @@ Claude reads this at the start of every session via CLAUDE.md.
 
 ---
 
-<!-- future entries will be added here as the project progresses -->
+## [2026-06-18] — Google OAuth needs offline access + bulletproof server-side refresh
+
+**What happened:** After ~1 hour (typically overnight), "Failed to load Drive files" appeared in the new-workflow FilePicker, and signers couldn't load documents either. Two root causes: (1) the Google provider in `lib/auth.ts` never set `accessType: 'offline'`, so Google returned NO refresh token — the access token expired with nothing to refresh it. (2) `lib/drive.ts` only refreshed when `accessTokenExpiresAt && accessTokenExpiresAt < now`, so a null expiry silently skipped refresh, and there was no buffer for tokens about to expire mid-request.
+
+**Why this matters for signers:** Signers read the document via the CREATOR's token (`getDriveClient(workflow.creatorId)`), so a stale creator token blocks the signer through no fault of their own. Refresh MUST be automatic and server-side.
+
+**Rule added:**
+- Google provider must set `accessType: 'offline'` AND `prompt: 'consent'` (the latter forces a refresh token even for users who already consented once).
+- `getDriveClient` refreshes proactively: if token is expired, expiring within a 5-min buffer, OR has no expiry on record.
+- Refreshed tokens are persisted to the `account` row so concurrent/subsequent requests reuse them.
+- If no refresh token exists or refresh fails (revoked), throw `DRIVE_REAUTH_REQUIRED` — a distinguishable sentinel.
+- Creator-facing routes (`/api/drive/files`, `/api/drive/search`) map `DRIVE_REAUTH_REQUIRED` → 401 so the FilePicker shows a "Reconnect Google Drive" button.
+- Signer-facing routes (`/api/drive/files/[fileId]/pdf` and `/hash`) map it → 502 with `code: 'OWNER_REAUTH_REQUIRED'` and a message telling the signer to contact the document owner (the signer cannot fix the creator's token).
+
+**Unavoidable one-time step:** accounts that authenticated BEFORE this fix have no refresh token stored. No code can refresh them automatically — they must reconnect Google once. After that, refresh is fully automatic.
+
+**Where to find the fix:**
+- `lib/auth.ts` — `accessType: 'offline'`, `prompt: 'consent'` on Google provider
+- `lib/drive.ts` — buffer-based proactive refresh + `DRIVE_REAUTH_REQUIRED` sentinel
+- `components/drive/FilePicker.tsx` — 401/403 → reconnect button via `signIn.social`
+- `app/api/drive/files/route.ts`, `app/api/drive/search/route.ts` — map sentinel → 401
+- `app/api/drive/files/[fileId]/pdf/route.ts`, `.../hash/route.ts` — map sentinel → 502 OWNER_REAUTH_REQUIRED

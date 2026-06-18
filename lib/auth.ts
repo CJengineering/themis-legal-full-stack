@@ -34,6 +34,8 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      accessType: "offline",  // Request refresh token so sessions survive past 1 hour
+      prompt: "consent",      // Force Google to always return a refresh token (not just on first auth)
       scope: [
         "openid",
         "email",

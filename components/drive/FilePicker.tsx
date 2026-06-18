@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { FileText, Folder, Search, ChevronRight, Home, Loader2 } from 'lucide-react'
+import { FileText, Folder, Search, ChevronRight, Home, Loader2, RefreshCw } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { cn } from '@/lib/utils'
+import { signIn } from '@/lib/auth-client'
 
 interface DriveFile {
   id: string
@@ -27,6 +29,7 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
   const [items, setItems] = useState<DriveFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [needsReconnect, setNeedsReconnect] = useState(false)
   const [currentFolderId, setCurrentFolderId] = useState<string>('root')
   const [currentDriveId, setCurrentDriveId] = useState<string | null>(null)
   const [folderPath, setFolderPath] = useState<{ id: string; name: string }[]>([
@@ -39,10 +42,10 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
   const fetchFolder = async (folderId: string, driveId: string | null = null) => {
     setLoading(true)
     setError(null)
+    setNeedsReconnect(false)
     setIsSearching(false)
 
     try {
-      // Build URL with optional folderId and driveId
       let url = '/api/drive/files'
       const params = new URLSearchParams()
       if (folderId !== 'root') params.append('folderId', folderId)
@@ -52,6 +55,11 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
       const response = await fetch(url)
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setNeedsReconnect(true)
+          setItems([])
+          return
+        }
         throw new Error('Failed to load Drive files')
       }
 
@@ -75,12 +83,18 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
 
     setLoading(true)
     setError(null)
+    setNeedsReconnect(false)
     setIsSearching(true)
 
     try {
       const response = await fetch(`/api/drive/search?q=${encodeURIComponent(query)}`)
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setNeedsReconnect(true)
+          setItems([])
+          return
+        }
         throw new Error('Search failed')
       }
 
@@ -204,6 +218,24 @@ export function FilePicker({ onSelect, selectedFileId }: FilePickerProps) {
         {loading && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {/* Token expired — reconnect */}
+        {needsReconnect && !loading && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+            <p className="font-medium text-amber-800">Google Drive session expired</p>
+            <p className="mt-1 text-amber-700">
+              Your Drive connection has expired. Reconnect to continue browsing files.
+            </p>
+            <Button
+              className="mt-3"
+              size="sm"
+              onClick={() => signIn.social({ provider: 'google', callbackURL: window.location.pathname })}
+            >
+              <RefreshCw className="mr-2 h-3.5 w-3.5" />
+              Reconnect Google Drive
+            </Button>
           </div>
         )}
 

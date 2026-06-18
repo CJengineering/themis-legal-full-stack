@@ -37,13 +37,29 @@ export async function getDriveClient(userId: string) {
     expiry_date: account.accessTokenExpiresAt?.getTime(),
   })
 
-  // If token is expired, refresh it
-  const now = new Date()
-  if (account.accessTokenExpiresAt && account.accessTokenExpiresAt < now) {
+  // Decide whether to refresh. Refresh proactively if the token is expired,
+  // expiring within the next 5 minutes, OR if we have no expiry on record
+  // (a missing expiry means we can't trust the token, so refresh to be safe).
+  // This is what makes Drive access automatic for signers: they read documents
+  // via the CREATOR's token, so a stale creator token must self-heal on the server.
+  const now = Date.now()
+  const EXPIRY_BUFFER_MS = 5 * 60 * 1000 // 5 minutes
+  const expiresAt = account.accessTokenExpiresAt?.getTime()
+  const needsRefresh = expiresAt == null || expiresAt - now < EXPIRY_BUFFER_MS
+
+  if (needsRefresh) {
+    if (!account.refreshToken) {
+      // No refresh token on file — the creator authenticated before offline
+      // access was requested. Automatic refresh is impossible; they must
+      // reconnect Google once. Surface a clear, distinguishable error.
+      throw new Error('DRIVE_REAUTH_REQUIRED')
+    }
+
     try {
       const { credentials } = await oauth2Client.refreshAccessToken()
 
-      // Update DB with new tokens
+      // Persist new tokens so every subsequent request (including other
+      // signers) uses the fresh token without re-refreshing.
       await prisma.account.update({
         where: { id: account.id },
         data: {
@@ -59,7 +75,8 @@ export async function getDriveClient(userId: string) {
       oauth2Client.setCredentials(credentials)
     } catch (error) {
       console.error('Failed to refresh access token:', error)
-      throw new Error('Failed to refresh Google Drive access token')
+      // Refresh token is invalid/revoked → creator must reconnect.
+      throw new Error('DRIVE_REAUTH_REQUIRED')
     }
   }
 
