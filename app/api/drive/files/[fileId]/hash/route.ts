@@ -66,6 +66,7 @@ export async function GET(
     const metadata = await drive.files.get({
       fileId,
       fields: 'id, name, mimeType',
+      supportsAllDrives: true, // Required for shared drive files
     })
 
     if (!metadata.data.name) {
@@ -78,7 +79,7 @@ export async function GET(
     // 5. Stream file content and compute hash
     // Using alt: 'media' to get file content instead of metadata
     const response = await drive.files.get(
-      { fileId, alt: 'media' },
+      { fileId, alt: 'media', supportsAllDrives: true },
       { responseType: 'stream' }
     )
 

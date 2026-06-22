@@ -60,6 +60,7 @@ export async function GET(
     const metadata = await drive.files.get({
       fileId,
       fields: 'id, name, mimeType',
+      supportsAllDrives: true, // Required for shared drive files
     })
 
     if (
@@ -77,6 +78,7 @@ export async function GET(
       {
         fileId,
         alt: 'media',
+        supportsAllDrives: true, // Required for shared drive files
       },
       { responseType: 'stream' }
     )

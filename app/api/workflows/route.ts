@@ -186,6 +186,7 @@ export async function POST(request: Request) {
     const fileMetadata = await drive.files.get({
       fileId: driveFileId,
       fields: 'id, name, mimeType',
+      supportsAllDrives: true, // Required for shared drive files
     })
 
     if (!fileMetadata.data.name) {
@@ -199,7 +200,7 @@ export async function POST(request: Request) {
     // CRITICAL: We compute the hash here during creation, not via separate endpoint
     // The hash endpoint requires an existing workflow, but we're creating one now
     const fileResponse = await drive.files.get(
-      { fileId: driveFileId, alt: 'media' },
+      { fileId: driveFileId, alt: 'media', supportsAllDrives: true },
       { responseType: 'stream' }
     )
 

@@ -135,17 +135,23 @@ Claude reads this at the start of every session via CLAUDE.md.
 
 **Rule added:**
 - Use full `https://www.googleapis.com/auth/drive` scope (industry standard for e-signature platforms)
-- All `drive.files.list()` calls must include:
-  - `corpora: 'user,allDrives'` — include My Drive and Shared Drives
-  - `includeItemsFromAllDrives: true` — include files from shared drives
-  - `supportsAllDrives: true` — enable shared drive support
-- These parameters are required on BOTH file listing and folder browsing queries
-- Without these parameters, shared files and folders will not appear even with full scope
+- **CRITICAL:** `supportsAllDrives: true` must be added to EVERY Drive API operation involving shared drive files — not just list queries
+  - `drive.files.list()` calls must include:
+    - `corpora: 'user,allDrives'` — include My Drive and Shared Drives
+    - `includeItemsFromAllDrives: true` — include files from shared drives
+    - `supportsAllDrives: true` — enable shared drive support
+  - `drive.files.get()` calls must include:
+    - `supportsAllDrives: true` — even for single-file fetches
+  - `drive.files.create()`, `drive.files.update()`, and ALL other file operations must include `supportsAllDrives: true`
+- Without these parameters, shared files will appear in listings but return 404 "File not found" when accessed
 
 **Where to find the fix:**
 - `lib/auth.ts` — Google OAuth scope changed to full `drive` access
 - `.claude/skills/google-drive.md` — updated all query examples with shared drive parameters
-- `docs/microsoft-auth-integration.md` — documents Drive access requirements
+- `app/api/drive/files/route.ts` — file listing with shared drive support
+- `app/api/drive/files/[fileId]/route.ts` — single file metadata fetch with `supportsAllDrives: true`
+- `app/api/drive/files/[fileId]/hash/route.ts` — hash computation with `supportsAllDrives: true` (2 calls)
+- `app/api/drive/files/[fileId]/pdf/route.ts` — PDF streaming with `supportsAllDrives: true` (2 calls)
 
 **Why this is safe:**
 - DocuSign, HelloSign, PandaDoc all use the same full Drive scope

@@ -30,6 +30,7 @@ export async function GET(
     const response = await drive.files.get({
       fileId,
       fields: 'id, name, mimeType, modifiedTime, size, parents, webViewLink',
+      supportsAllDrives: true, // Required for shared drive files
     })
 
     return NextResponse.json(response.data)

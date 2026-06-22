@@ -5,6 +5,11 @@ Themis does NOT store document content. No blobs in DB, no files on disk,
 no caching file content in memory beyond a single streaming request.
 Google Drive is the single source of truth for all documents.
 
+## CRITICAL: Shared Drive Support
+**EVERY Drive API operation must include `supportsAllDrives: true` when working with files that might be in Shared Drives.**
+This applies to ALL operations: `files.get()`, `files.list()`, `files.create()`, `files.update()`, etc.
+Without this parameter, files in Shared Drives will return 404 "File not found" errors even when the user has access.
+
 ## OAuth Scope
 As of 2026-06-11, we use full Drive access:
 - `https://www.googleapis.com/auth/drive` — Full access to read all files (including shared) and write signed PDFs to user-specified folders
@@ -47,6 +52,22 @@ const res = await drive.files.list({
 return res.data.files
 ```
 
+## Fetching a single file
+```typescript
+// Get file metadata
+const metadata = await drive.files.get({
+  fileId,
+  fields: 'id, name, mimeType, parents',
+  supportsAllDrives: true, // REQUIRED for shared drive files
+})
+
+// Get file content
+const response = await drive.files.get(
+  { fileId, alt: 'media', supportsAllDrives: true },
+  { responseType: 'stream' }
+)
+```
+
 ## Saving completed signed document (CJ-629)
 ```typescript
 // Stream PDF back to Drive — do NOT buffer entire file
@@ -61,6 +82,8 @@ await drive.files.create({
     mimeType: 'application/pdf',
     body: pdfStream,   // Node.js Readable stream
   },
+  fields: 'id',
+  supportsAllDrives: true, // REQUIRED when uploading to shared drive folders
 })
 ```
 

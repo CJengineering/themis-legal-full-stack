@@ -51,6 +51,7 @@ export async function embedSignaturesInPdf({
     {
       fileId: driveFileId,
       alt: 'media',
+      supportsAllDrives: true, // Required for shared drive files
     },
     { responseType: 'arraybuffer' }
   )
@@ -216,6 +217,7 @@ export async function saveSignedDocumentToDrive({
     const fileMetadata = await drive.files.get({
       fileId: workflow.driveFileId,
       fields: 'parents',
+      supportsAllDrives: true, // Required for shared drive files
     })
 
     if (fileMetadata.data.parents && fileMetadata.data.parents.length > 0) {
@@ -242,6 +244,7 @@ export async function saveSignedDocumentToDrive({
       body: bufferToStream(signedPdfBuffer),
     },
     fields: 'id',
+    supportsAllDrives: true, // Required when uploading to shared drive folders
   })
 
   const newFileId = uploadResponse.data.id
